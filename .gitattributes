@@ -1,0 +1,4 @@
+# The design bundle is a generated single-line-JSON artefact. Line-ending
+# conversion would put a CR inside the JSON payload and break the template
+# parse on checkout, so never touch it.
+design/SANA_AI.html -text
