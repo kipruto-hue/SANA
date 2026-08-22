@@ -1,0 +1,15 @@
+{
+  "name": "@sana/tokens",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "SANA's design system, extracted from design/SANA_AI.html. Generated — see tools/extract_tokens.py.",
+  "exports": {
+    ".": "./src/tokens.ts",
+    "./system.css": "./src/system.css"
+  },
+  "files": [
+    "src",
+    "fonts"
+  ]
+}

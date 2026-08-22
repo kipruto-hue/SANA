@@ -1,0 +1,27 @@
+node_modules/
+dist/
+build/
+coverage/
+.vite/
+*.tsbuildinfo
+
+.env
+.env.*
+!.env.example
+
+# Generated protocol audio. The scripts and their hashes are versioned;
+# the .wav files are large and rebuildable from tools/generate_audio.py.
+packages/protocols/audio/*.wav
+
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+
+playwright-report/
+test-results/
+.playwright/
+
+__pycache__/
+*.py[cod]
+.venv/
