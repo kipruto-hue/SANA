@@ -73,3 +73,20 @@ only protocol *ids* and observed facts may pass, never prose, so no medical
 wording can originate in model weights; and an incident record derived purely
 from the append-only event log rather than authored by anything. Escalation has
 no server-side implementation at all — there is nothing that could auto-dial.
+
+**State at the midday pause.** Five commits pushed, working tree clean, `npm
+run verify` green across all five guards. What exists now: the reconciled
+master prompt and four decision records; `tools/extract_tokens.py`, which pulls
+48 tokens, 13.7KB of component CSS and four real woff2 files out of the design
+bundle and fails CI on drift; and the frozen protocol library — three
+protocols, twenty-two steps, eight locked system lines, all `clinician_review:
+pending`, content-addressed so edited medical content cannot run. Seventeen
+tests green. Two defects were caught and fixed along the way, both of the kind
+that only surface on someone else's machine: `.gitattributes` rule ordering had
+silently re-enabled CRLF conversion on the design bundle — the exact corruption
+session 01 guarded against, and 392 CRs had already landed in the working copy —
+and the generated design-system files needed the same LF pinning, or the drift
+check would have failed on every fresh clone while the design was untouched.
+What does not exist yet: any running application. There is no `apps/` directory,
+no frontend, no server. The next session starts the flow state machine, which
+everything downstream drives off.
