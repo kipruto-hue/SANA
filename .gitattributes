@@ -1,4 +1,38 @@
-# The design bundle is a generated single-line-JSON artefact. Line-ending
-# conversion would put a CR inside the JSON payload and break the template
-# parse on checkout, so never touch it.
+# Ordering matters here: later rules win, so the generic defaults come first
+# and the specific protections come last. Putting `*.html text eol=lf` after
+# the design bundle's `-text` rule would silently re-enable line-ending
+# conversion on the one file in the repo that cannot survive it.
+
+# --- generic defaults, so diffs stay readable across machines ---------------
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.js    text eol=lf
+*.json  text eol=lf
+*.css   text eol=lf
+*.md    text eol=lf
+*.py    text eol=lf
+*.yml   text eol=lf
+*.html  text eol=lf
+
+# --- binaries: never convert, never diff ------------------------------------
+*.woff2 binary
+*.wav   binary
+
+# --- byte-exact generated artefacts -----------------------------------------
+# tools/extract_tokens.py verifies these with a byte comparison. If Git handed
+# them back as CRLF on checkout, `npm run tokens:check` would report that the
+# app had drifted from a design nobody had touched -- and only on Windows
+# clones and in CI, which is the worst way to find out.
+packages/tokens/src/system.css text eol=lf
+packages/tokens/src/tokens.ts  text eol=lf
+
+# The protocol library is content-addressed. A CR would change every hash on
+# checkout and the API would refuse to boot against a library nobody edited.
+packages/protocols/content/**    text eol=lf
+packages/protocols/manifest.json text eol=lf
+
+# --- the design bundle: last, because it must win ---------------------------
+# A generated single-line-JSON artefact. Line-ending conversion would put a CR
+# inside the JSON payload and break the template parse on checkout, so never
+# touch it. This rule is deliberately the final word in this file.
 design/SANA_AI.html -text
