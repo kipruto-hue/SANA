@@ -41,6 +41,14 @@ export interface State {
   readonly match: Match | null;
   readonly protocol: Protocol | null;
   readonly stepIndex: number;
+  /**
+   * The furthest step actually reached. Distinct from stepIndex, which moves
+   * back when the operator taps Back -- the handover sheet must report how far
+   * the guidance actually got, not where the screen happens to be sitting.
+   */
+  readonly furthestStep: number;
+  /** When the human tapped the dial control, so the record can state it. */
+  readonly escalatedAt: number | null;
   readonly escalated: boolean;
   readonly startedAt: number | null;
   readonly events: readonly IncidentEvent[];
@@ -57,7 +65,9 @@ export const initialState: State = {
   match: null,
   protocol: null,
   stepIndex: 0,
+  furthestStep: 0,
   escalated: false,
+  escalatedAt: null,
   startedAt: null,
   events: [],
 };
@@ -155,6 +165,7 @@ export const reducer = (state: State, action: Action): State => {
         phase: 'guiding',
         protocol: state.match.protocol,
         stepIndex: 0,
+        furthestStep: 0,
         events: log(state, 'confirmed', `Human confirmed: ${state.match.protocol.title}`),
       };
     }
@@ -183,6 +194,7 @@ export const reducer = (state: State, action: Action): State => {
       return {
         ...state,
         stepIndex: next,
+        furthestStep: Math.max(state.furthestStep, next),
         events: log(state, 'step', `Step ${next + 1} of ${state.protocol.steps.length} read`),
       };
     }
@@ -191,9 +203,14 @@ export const reducer = (state: State, action: Action): State => {
       return state.stepIndex > 0 ? { ...state, stepIndex: state.stepIndex - 1 } : state;
 
     case 'HUMAN_TAPPED_CALL':
+      // Recording only. Nothing here dials -- the screen renders a tel: link
+      // and the human taps it. Idempotent, so a second tap does not rewrite
+      // the time the first call was made.
+      if (state.escalated) return state;
       return {
         ...state,
         escalated: true,
+        escalatedAt: Date.now(),
         events: log(state, 'escalated', 'Human tapped call for help'),
       };
 

@@ -460,3 +460,70 @@ body {
   outline: 2px solid var(--color-accent-2-600);
   outline-offset: 2px;
 }
+
+/* --- wordmark and voice ---------------------------------------------------- */
+
+.wordmark {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tagline {
+  font-family: var(--font-heading);
+  font-size: clamp(19px, 4.4vw, 23px);
+  line-height: 1.24;
+  margin: 0;
+  max-width: 15ch;
+  color: var(--color-accent-2-800);
+  text-wrap: balance;
+}
+
+.screen-title {
+  margin: 4px 0 0;
+  font-size: clamp(23px, 5vw, 28px);
+  text-wrap: balance;
+}
+
+/* The one action on the resting screen. Sized so it is reachable one-handed
+   without looking, which is the state the person using it will be in. */
+.panic {
+  min-height: 88px;
+  font-size: 20px;
+  border-radius: 999px;
+}
+
+.inline-link {
+  padding: 0;
+  min-height: 0;
+  font-size: inherit;
+  font-family: var(--font-body);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Step progress. Position without a number to read — the count is already
+   spelled out above it. */
+.pips {
+  display: flex;
+  gap: 4px;
+}
+.pips span {
+  height: 3px;
+  flex: 1;
+  border-radius: 999px;
+  background: var(--color-neutral-300);
+  transition: background 260ms;
+}
+.pips span[data-done='true'] {
+  background: var(--color-accent-2-500);
+}
+
+/* Uncertainty wears the urgent colour's quiet end: visible, but it is not the
+   dial control and must not read as it. */
+.confirm.is-uncertain {
+  border-color: var(--color-accent-400);
+  background: var(--color-accent-100);
+}
+.confirm.is-uncertain .step-n {
+  color: var(--color-accent-800);
+}

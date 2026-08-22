@@ -1,19 +1,22 @@
-import { useEffect, useRef, useState, type Dispatch } from 'react';
+import { useCallback, useEffect, useRef, useState, type Dispatch } from 'react';
 
+import { LIVE } from '../lib/copy.js';
 import { canDial, type SiteContext } from '../lib/context.js';
 import { currentStep, PHASE_LABEL, type Action, type State } from '../lib/flow.js';
-import {
-  CONFIDENCE_THRESHOLD,
-  line,
-  matchProtocol,
-} from '../lib/library.js';
+import { CONFIDENCE_THRESHOLD, line, matchProtocol } from '../lib/library.js';
 import { listen, speak, speechSupported, stopSpeaking, type Listener } from '../lib/speech.js';
+
+/** Held longer than this and releasing ends the turn; a quick tap latches on. */
+const HOLD_MS = 500;
+
+const clock = (at: number) =>
+  new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 /**
  * The core screen. Everything the master prompt says must be reachable in an
  * emergency is on it at once: what SANA last said, the current step at reading
- * distance, and the dial control — which is never more than a thumb away and
- * is the only thing on screen wearing terracotta.
+ * distance, and the dial control — never more than a thumb away, and the only
+ * thing on screen wearing terracotta.
  */
 export const Live = ({
   dispatch,
@@ -28,13 +31,18 @@ export const Live = ({
   const [typed, setTyped] = useState('');
   const [error, setError] = useState('');
   const listener = useRef<Listener | null>(null);
+  const heldFrom = useRef<number>(0);
+  const latest = useRef<string>('');
   const step = currentStep(state);
   const dialable = canDial(context);
 
-  // Acknowledge immediately, so there is never dead silence at the start.
+  // Acknowledge the moment the session opens, so there is never dead silence.
   useEffect(() => {
     speak(line('acknowledge'));
-    return () => stopSpeaking();
+    return () => {
+      stopSpeaking();
+      listener.current?.stop();
+    };
   }, []);
 
   // Read each step aloud as it arrives. Locked library wording only.
@@ -47,37 +55,42 @@ export const Live = ({
     if (state.phase === 'unmatched') speak(line('unmatched'));
   }, [state.phase, state.match]);
 
-  const stopListening = () => {
+  const stopListening = useCallback(() => {
     listener.current?.stop();
     listener.current = null;
     setListening(false);
-  };
+  }, []);
 
-  const submit = (text: string) => {
-    const said = text.trim();
-    if (!said) return;
-    stopListening();
-    dispatch({ type: 'TRANSCRIPT', text: said });
-    dispatch({ type: 'MATCHING' });
-    speak(line('thinking'));
+  const submit = useCallback(
+    (text: string) => {
+      const said = text.trim();
+      if (!said) return;
+      stopListening();
+      dispatch({ type: 'TRANSCRIPT', text: said });
+      dispatch({ type: 'MATCHING' });
+      speak(line('thinking'));
 
-    // A beat of thinking time, so the interface does not snap through the
-    // matching state faster than a frightened person can follow it.
-    window.setTimeout(() => {
-      const match = matchProtocol(said);
-      if (match && match.confidence >= CONFIDENCE_THRESHOLD) {
-        dispatch({ type: 'MATCHED', match });
-      } else {
-        dispatch({ type: 'UNMATCHED' });
-      }
-    }, 900);
-  };
+      // A beat of thinking time, so the interface does not snap through
+      // matching faster than a frightened person can follow.
+      window.setTimeout(() => {
+        const match = matchProtocol(said);
+        if (match && match.confidence >= CONFIDENCE_THRESHOLD) {
+          dispatch({ type: 'MATCHED', match });
+        } else {
+          dispatch({ type: 'UNMATCHED' });
+        }
+      }, 900);
+    },
+    [dispatch, stopListening],
+  );
 
-  const startListening = () => {
+  const startListening = useCallback(() => {
     setError('');
     stopSpeaking();
+    latest.current = '';
     const active = listen(
       (text, final) => {
+        latest.current = text;
         dispatch({ type: 'TRANSCRIPT', text });
         if (final) submit(text);
       },
@@ -87,12 +100,32 @@ export const Live = ({
       },
     );
     if (!active) {
-      setError('This browser cannot listen. Type what you can see instead.');
+      setError(LIVE.micUnsupported);
       return;
     }
     listener.current = active;
     setListening(true);
+  }, [dispatch, submit]);
+
+  // Hold to talk, or tap to latch. Both work, because a person holding a phone
+  // one-handed over a casualty may not manage a steady press.
+  const onPress = () => {
+    heldFrom.current = Date.now();
+    if (!listening) startListening();
   };
+
+  const onRelease = () => {
+    const held = Date.now() - heldFrom.current;
+    if (!listening) return;
+    if (held >= HOLD_MS) submit(latest.current || state.transcript);
+  };
+
+  const onTap = () => {
+    if (Date.now() - heldFrom.current >= HOLD_MS) return; // the hold already handled it
+    if (listening) submit(latest.current || state.transcript);
+  };
+
+  const total = state.protocol?.steps.length ?? 0;
 
   return (
     <div className="screen">
@@ -100,7 +133,7 @@ export const Live = ({
         <span className="tag tag-accent-2">{PHASE_LABEL[state.phase]}</span>
         <span className="rec">
           <i aria-hidden="true" />
-          Recording this incident
+          {LIVE.recording}
         </span>
       </div>
 
@@ -112,14 +145,17 @@ export const Live = ({
                 className="orb"
                 type="button"
                 data-active={listening ? 'true' : 'false'}
-                onClick={() => (listening ? (stopListening(), submit(state.transcript)) : startListening())}
-                aria-label={listening ? 'Stop listening' : 'Start listening'}
+                onPointerDown={onPress}
+                onPointerUp={onRelease}
+                onPointerLeave={onRelease}
+                onClick={onTap}
+                aria-label={listening ? 'Stop listening and send' : 'Hold to talk'}
               >
-                {listening ? 'Listening…' : 'Tap to talk'}
+                {listening ? LIVE.listening : LIVE.tapToTalk}
               </button>
             </div>
             <p className="said">{line('acknowledge')}</p>
-            <p className="captions">{state.transcript || (listening ? 'Go ahead…' : '')}</p>
+            <p className="captions">{state.transcript || (listening ? LIVE.goAhead : '')}</p>
 
             {(!speechSupported() || error) && (
               <form
@@ -131,16 +167,16 @@ export const Live = ({
                 }}
               >
                 {error && <p className="note">{error}</p>}
-                <label htmlFor="typed">Or type what you can see</label>
+                <label htmlFor="typed">{LIVE.typeLabel}</label>
                 <input
                   id="typed"
                   className="input"
                   value={typed}
                   onChange={(event) => setTyped(event.target.value)}
-                  placeholder="She collapsed and won't wake up"
+                  placeholder={LIVE.typePlaceholder}
                 />
                 <button className="btn btn-secondary" type="submit" disabled={!typed.trim()}>
-                  Tell SANA
+                  {LIVE.typeSubmit}
                 </button>
               </form>
             )}
@@ -150,14 +186,14 @@ export const Live = ({
         {state.phase === 'matching' && (
           <div className="orb-wrap">
             <div className="orb" data-active="true" aria-live="polite">
-              Thinking…
+              {LIVE.thinking}
             </div>
           </div>
         )}
 
         {state.phase === 'confirming' && state.match && (
           <div className="confirm">
-            <span className="step-n">Confirm before I guide</span>
+            <span className="step-n">{LIVE.confirmKicker}</span>
             <p>{state.match.protocol.confirm_prompt}</p>
             {state.facts.length > 0 && (
               <div className="facts">
@@ -175,7 +211,7 @@ export const Live = ({
                 style={{ flex: 1 }}
                 onClick={() => dispatch({ type: 'HUMAN_CONFIRMED' })}
               >
-                Continue
+                {LIVE.confirmYes}
               </button>
               <button
                 className="btn btn-secondary"
@@ -185,33 +221,34 @@ export const Live = ({
                   dispatch({ type: 'HUMAN_REJECTED' });
                 }}
               >
-                Not right?
+                {LIVE.confirmNo}
               </button>
             </div>
           </div>
         )}
 
         {state.phase === 'unmatched' && (
-          <div className="confirm" style={{ borderColor: 'var(--color-accent-400)', background: 'var(--color-accent-100)' }}>
-            <span className="step-n" style={{ color: 'var(--color-accent-800)' }}>
-              I can&rsquo;t match this
-            </span>
+          <div className="confirm is-uncertain">
+            <span className="step-n">{LIVE.unmatchedKicker}</span>
             <p>{line('unmatched')}</p>
             <button
               className="btn btn-secondary"
               type="button"
               onClick={() => dispatch({ type: 'HUMAN_REJECTED' })}
             >
-              Try describing it again
+              {LIVE.unmatchedRetry}
             </button>
           </div>
         )}
 
         {state.phase === 'guiding' && step && state.protocol && (
           <div className="step">
-            <span className="step-n">
-              Step {step.n} of {state.protocol.steps.length} · {state.protocol.title}
-            </span>
+            <span className="step-n">{LIVE.stepOf(step.n, total, state.protocol.title)}</span>
+            <div className="pips" aria-hidden="true">
+              {state.protocol.steps.map((s) => (
+                <span key={s.n} data-done={s.n <= step.n ? 'true' : 'false'} />
+              ))}
+            </div>
             <p className="step-text">{step.text}</p>
             <div className="step-nav">
               <button
@@ -220,7 +257,7 @@ export const Live = ({
                 onClick={() => dispatch({ type: 'PREV_STEP' })}
                 disabled={state.stepIndex === 0}
               >
-                Back
+                {LIVE.back}
               </button>
               <button
                 className="btn btn-secondary btn-xl"
@@ -228,12 +265,13 @@ export const Live = ({
                 style={{ flex: 1 }}
                 onClick={() => dispatch({ type: 'NEXT_STEP' })}
               >
-                {state.stepIndex === state.protocol.steps.length - 1 ? 'Done' : 'Next step'}
+                {state.stepIndex === total - 1 ? LIVE.lastStep : LIVE.next}
               </button>
               <button
                 className="btn btn-icon btn-secondary"
                 type="button"
-                aria-label="Read this step again"
+                aria-label={LIVE.repeat}
+                title={LIVE.repeat}
                 onClick={() => speak(step.text)}
               >
                 ↻
@@ -244,14 +282,14 @@ export const Live = ({
 
         {state.phase === 'resolved' && (
           <div className="confirm">
-            <span className="step-n">That&rsquo;s everything I have</span>
+            <span className="step-n">{LIVE.completeKicker}</span>
             <p>{line('protocol_complete')}</p>
             <button
               className="btn btn-secondary btn-xl"
               type="button"
               onClick={() => dispatch({ type: 'VIEW_HANDOVER' })}
             >
-              Open the handover sheet
+              {LIVE.openHandover}
             </button>
           </div>
         )}
@@ -267,21 +305,23 @@ export const Live = ({
               dispatch({ type: 'HUMAN_TAPPED_CALL' });
             }}
           >
-            Call for help · {context.emergencyNumber}
+            {LIVE.call(context.emergencyNumber)}
           </a>
         ) : (
           <button className="call" type="button" data-disabled="true" disabled>
-            No emergency number set for this site
+            {LIVE.callUnavailable}
           </button>
         )}
         {!dialable && <p className="note">{line('no_emergency_number')}</p>}
-        {state.escalated && <p className="note">Called at {new Date().toLocaleTimeString()}. The handover sheet is ready to read out.</p>}
+        {state.escalatedAt !== null && (
+          <p className="note">{LIVE.calledAt(clock(state.escalatedAt))}</p>
+        )}
         <button
           className="btn btn-ghost"
           type="button"
           onClick={() => dispatch({ type: 'RESOLVE' })}
         >
-          End session and open handover
+          {LIVE.endSession}
         </button>
       </div>
     </div>
