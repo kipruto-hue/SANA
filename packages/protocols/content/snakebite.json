@@ -1,0 +1,68 @@
+{
+  "id": "snakebite",
+  "version": "1.0.0",
+  "title": "Snakebite",
+  "spoken_title": "a snakebite",
+  "confirm_prompt": "This sounds like a snakebite. Say go, or tap Continue, and I'll talk you through it — but call for help as soon as you can either way.",
+  "match_cues": [
+    "bitten by a snake",
+    "snake bite",
+    "puncture marks on the skin",
+    "saw a snake",
+    "swelling and pain after a bite",
+    "bitten on the leg or arm outdoors"
+  ],
+  "escalate_immediately": true,
+  "steps": [
+    {
+      "n": 1,
+      "text": "Move them away from the snake, but do not try to catch it or kill it. Keep everyone else back.",
+      "audio": "snakebite/01.wav"
+    },
+    {
+      "n": 2,
+      "text": "Call for help now. Antivenom is the treatment and it is only available at a hospital, so getting them there quickly matters more than anything you do here.",
+      "audio": "snakebite/02.wav"
+    },
+    {
+      "n": 3,
+      "text": "Keep them as still and as calm as you can. Movement moves venom through the body faster. Do not let them walk if you can avoid it.",
+      "audio": "snakebite/03.wav"
+    },
+    {
+      "n": 4,
+      "text": "Keep the bitten limb still, and level with or below the heart. Support it with a splint or a sling if you have one.",
+      "audio": "snakebite/04.wav"
+    },
+    {
+      "n": 5,
+      "text": "Take off any rings, watches, bracelets or tight clothing near the bite, before it swells.",
+      "audio": "snakebite/05.wav"
+    },
+    {
+      "n": 6,
+      "text": "Do not cut the bite. Do not try to suck the venom out. Do not apply ice, and do not tie a tourniquet. All of these cause harm.",
+      "audio": "snakebite/06.wav"
+    },
+    {
+      "n": 7,
+      "text": "If you can do it safely from where you are, note the time of the bite and what the snake looked like. Do not go looking for it.",
+      "audio": "snakebite/07.wav"
+    },
+    {
+      "n": 8,
+      "text": "Stay with them and keep watching their breathing. If they stop responding or stop breathing normally, tell me straight away.",
+      "audio": "snakebite/08.wav"
+    }
+  ],
+  "sources": [
+    "World Health Organization, Guidelines for the Management of Snakebites (2nd edition) — First aid and transport to hospital",
+    "World Health Organization, Snakebite envenoming fact sheet",
+    "International Federation of Red Cross and Red Crescent Societies, International First Aid, Resuscitation and Education Guidelines 2020 — Snakebite"
+  ],
+  "clinician_review": {
+    "status": "pending",
+    "reviewer": null,
+    "date": null
+  }
+}

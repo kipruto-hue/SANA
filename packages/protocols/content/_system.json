@@ -1,0 +1,52 @@
+{
+  "id": "_system",
+  "version": "1.0.0",
+  "description": "Everything SANA is allowed to say that is not a protocol step. These are locked and hashed exactly like medical content, because the sentence SANA says when it cannot match is as safety-critical as any step — it is the one that has to send the human to real help instead of guessing.",
+  "lines": {
+    "acknowledge": {
+      "text": "Okay. I'm here. Tell me what you can see.",
+      "audio": "_system/acknowledge.wav",
+      "note": "Played the instant listening starts, so there is never dead silence."
+    },
+    "thinking": {
+      "text": "Thank you. Give me a moment.",
+      "audio": "_system/thinking.wav",
+      "note": "Covers the matching pause."
+    },
+    "unmatched": {
+      "text": "I'm not sure enough about this one to guide you, and I won't guess. Call for help now, and stay with them.",
+      "audio": "_system/unmatched.wav",
+      "note": "Master prompt section 3, graceful uncertainty. Spoken whenever the match is below threshold or absent. This line is the reason the model is never allowed to author prose: without it, an uncertain system fills the silence with something plausible."
+    },
+    "not_right": {
+      "text": "Alright, I've set that aside. Tell me again what you can see.",
+      "audio": "_system/not_right.wav",
+      "note": "Spoken when the human rejects the suggested match at the confirm beat."
+    },
+    "step_done": {
+      "text": "Well done. Tell me when you're ready for the next one.",
+      "audio": "_system/step_done.wav",
+      "note": "Between steps. Steadying language, master prompt section 2."
+    },
+    "protocol_complete": {
+      "text": "That's everything I have for this. Stay with them, keep watching their breathing, and wait for help to arrive.",
+      "audio": "_system/protocol_complete.wav",
+      "note": "End of the last step. SANA does not improvise beyond the library."
+    },
+    "escalation_confirmed": {
+      "text": "Good. Keep the phone with you, and read them the summary on the screen when they ask.",
+      "audio": "_system/escalation_confirmed.wav",
+      "note": "After the human taps the emergency-dial control. SANA never dials."
+    },
+    "no_emergency_number": {
+      "text": "I don't have an emergency number set for this site, so I can't dial for you. Use your phone's own emergency call.",
+      "audio": "_system/no_emergency_number.wav",
+      "note": "Decision 0003: a missing number fails loudly. SANA never substitutes a plausible default."
+    }
+  },
+  "clinician_review": {
+    "status": "pending",
+    "reviewer": null,
+    "date": null
+  }
+}

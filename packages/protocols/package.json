@@ -1,0 +1,19 @@
+{
+  "name": "@sana/protocols",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "SANA's frozen, content-addressed first-aid protocol library. The only source of medical wording.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "freeze": "tsx src/freeze.ts"
+  },
+  "dependencies": {
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2"
+  }
+}

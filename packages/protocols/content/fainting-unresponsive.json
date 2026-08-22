@@ -1,0 +1,64 @@
+{
+  "id": "fainting-unresponsive",
+  "version": "1.0.0",
+  "title": "Fainting and unresponsiveness — breathing normally",
+  "spoken_title": "someone who has fainted or is not responding",
+  "confirm_prompt": "This sounds like a faint. Is the person unresponsive but still breathing? Say go, or tap Continue, and I'll talk you through it.",
+  "match_cues": [
+    "collapsed",
+    "fainted",
+    "passed out",
+    "not responding",
+    "unresponsive",
+    "will not wake up",
+    "went pale and dropped",
+    "still breathing"
+  ],
+  "escalate_immediately": false,
+  "steps": [
+    {
+      "n": 1,
+      "text": "Kneel beside them. Say their name loudly and gently squeeze their shoulders. Tell me if they respond.",
+      "audio": "fainting-unresponsive/01.wav"
+    },
+    {
+      "n": 2,
+      "text": "If they do not respond, tilt their head back gently with one hand on the forehead and two fingertips under the chin. This opens the airway.",
+      "audio": "fainting-unresponsive/02.wav"
+    },
+    {
+      "n": 3,
+      "text": "Look along their chest and listen at their mouth for up to ten seconds. Are they breathing normally? Occasional gasps are not normal breathing.",
+      "audio": "fainting-unresponsive/03.wav"
+    },
+    {
+      "n": 4,
+      "text": "If they are breathing normally, roll them onto their side. Keep their head tilted back so the airway stays open and anything in the mouth can drain.",
+      "audio": "fainting-unresponsive/04.wav"
+    },
+    {
+      "n": 5,
+      "text": "Call for help now if you have not already. Then loosen anything tight around their neck and keep them warm.",
+      "audio": "fainting-unresponsive/05.wav"
+    },
+    {
+      "n": 6,
+      "text": "Stay with them and keep watching that they are still breathing. Do not leave them alone.",
+      "audio": "fainting-unresponsive/06.wav"
+    },
+    {
+      "n": 7,
+      "text": "If their breathing stops or starts to sound abnormal, tell me straight away and start chest compressions if you know how.",
+      "audio": "fainting-unresponsive/07.wav"
+    }
+  ],
+  "sources": [
+    "International Federation of Red Cross and Red Crescent Societies, International First Aid, Resuscitation and Education Guidelines 2020 — Unresponsiveness and abnormal breathing",
+    "International Liaison Committee on Resuscitation (ILCOR), Consensus on Science with Treatment Recommendations — Recovery position"
+  ],
+  "clinician_review": {
+    "status": "pending",
+    "reviewer": null,
+    "date": null
+  }
+}

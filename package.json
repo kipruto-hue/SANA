@@ -22,7 +22,8 @@
     "tokens": "python tools/extract_tokens.py",
     "tokens:check": "python tools/extract_tokens.py --check",
     "design:check": "python tools/qatar_dressing.py --check",
-    "verify": "npm run tokens:check && npm run design:check && npm run typecheck && npm run lint && npm run test"
+    "verify": "npm run tokens:check && npm run design:check && npm run typecheck && npm run lint && npm run test",
+    "protocols:freeze": "npm run freeze -w @sana/protocols"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

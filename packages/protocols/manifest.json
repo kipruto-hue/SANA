@@ -1,0 +1,113 @@
+{
+  "generated_by": "packages/protocols/src/freeze.ts",
+  "library_sha256": "a7290ba5be68a2568462a0e790075e2aedec08ec32b3a570203a13d6e47972cb",
+  "entries": {
+    "_system": {
+      "file_sha256": "45685687258460cb00a2947e9852ce712ba13765aa1f36940816513976150d45",
+      "steps": {}
+    },
+    "choking-adult": {
+      "file_sha256": "ab74ea3beb9e1b6a0a47e74ef63917296b41f03c089dca2c2af028d4cd0dd941",
+      "steps": {
+        "1": {
+          "text_sha256": "9f29478d245413ad1e6450dc87d9b0db65a29cb94fdeff4ea74769861288b7c7",
+          "audio_sha256": null
+        },
+        "2": {
+          "text_sha256": "e488e7de3b3bf3b3db8c69813cc0f40c898ebfe76499277949af1b46bf50930c",
+          "audio_sha256": null
+        },
+        "3": {
+          "text_sha256": "d6d3255554cc629ac9bcf2202695cd2b9ea6898df2bb0d64bf17537f4611bd39",
+          "audio_sha256": null
+        },
+        "4": {
+          "text_sha256": "30b8b17ac6d483a9df08a6f5a87b49e011d6d0ddf176b9437527fbb45bb5cf40",
+          "audio_sha256": null
+        },
+        "5": {
+          "text_sha256": "e3e80a4c8820c7c5ccf576e02f5c91745b7f05128a3b5cb0a016f14e16c1ff76",
+          "audio_sha256": null
+        },
+        "6": {
+          "text_sha256": "8f631c5ffa3d7630aaea8f8e3e85342d4276f2991be53c91b86780444460ea4f",
+          "audio_sha256": null
+        },
+        "7": {
+          "text_sha256": "aa68575de2d80030127196edc030a9f5adefe69e6cc97fe7df548d396ac2335d",
+          "audio_sha256": null
+        }
+      }
+    },
+    "fainting-unresponsive": {
+      "file_sha256": "fac05d3666a2df22334fb0ad91bbc6ab9ee929cd95c11abcd8b89c2ea0b00444",
+      "steps": {
+        "1": {
+          "text_sha256": "86f76828912506b754333512a5803a05c97e08d9f4ab692deca0417976e247a6",
+          "audio_sha256": null
+        },
+        "2": {
+          "text_sha256": "b0b8ab2b1b693f7c0febb930920cd8250e73d574a6c5c3b45a8395bc6a8aaae8",
+          "audio_sha256": null
+        },
+        "3": {
+          "text_sha256": "3806d1c071cb362573e77591e30bdbabea25a7f312c74bf1319b2fdf318763bb",
+          "audio_sha256": null
+        },
+        "4": {
+          "text_sha256": "b2c4a87a5f2743103a4b4138ed9540b396cbcf141b7d64d260365c45566a2a85",
+          "audio_sha256": null
+        },
+        "5": {
+          "text_sha256": "ae341d27f6d9f10f2dfc22f564643a88d6ad2983a2262a357ef8abffc10a931e",
+          "audio_sha256": null
+        },
+        "6": {
+          "text_sha256": "5d72ce5c9c56f330078ef4824f4643b7a5370ba8bc358d268d65e9b467d22bb5",
+          "audio_sha256": null
+        },
+        "7": {
+          "text_sha256": "1c1430502c1b64f5aff7f56f8ba76aac76561388c6a387fda895c899a0ff5e25",
+          "audio_sha256": null
+        }
+      }
+    },
+    "snakebite": {
+      "file_sha256": "ff6347b2ec996301feda72fefe1d07d83c9866acf2faaf36a3ba4774d73ac6be",
+      "steps": {
+        "1": {
+          "text_sha256": "f198d46ecf948dfed393dcb7e85343d64570799aa4a389f6f30f000be1f82b13",
+          "audio_sha256": null
+        },
+        "2": {
+          "text_sha256": "f37ed52a99757428a07008b2d1e0e3cc0c7ed5b0fa50d7776d84d980dc3c6ece",
+          "audio_sha256": null
+        },
+        "3": {
+          "text_sha256": "d21d4981ef6599674268ee30ae23fafffd41302595b575c9c1f727bdfeca7b2f",
+          "audio_sha256": null
+        },
+        "4": {
+          "text_sha256": "e1c0fa200791e1fc97669c8c3ee8e378e2e79f5465e8a0c9af73175aaec15d59",
+          "audio_sha256": null
+        },
+        "5": {
+          "text_sha256": "3761638632aa83a1f927dfa7238805a5d5efc06457f4cbdb340aaa12e41b00cc",
+          "audio_sha256": null
+        },
+        "6": {
+          "text_sha256": "43d18651a7af3a790d0861a298f29ede4887605e7d7f887648ef4918b8279934",
+          "audio_sha256": null
+        },
+        "7": {
+          "text_sha256": "1cde8935a6a793dae984104de2bc0a9e164f44ccc463df4d4e4314de3a65076e",
+          "audio_sha256": null
+        },
+        "8": {
+          "text_sha256": "6c80eae3d73da365c8579eea1a5a4bed31e63f5a2996976c8a7ae756c1d3b6f5",
+          "audio_sha256": null
+        }
+      }
+    }
+  }
+}
