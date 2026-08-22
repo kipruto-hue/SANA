@@ -25,3 +25,7 @@ test-results/
 __pycache__/
 *.py[cod]
 .venv/
+
+# Generated build-status page (tools rebuild it on demand; 186KB of inlined fonts
+# does not belong in git history).
+design-system-proof.html
