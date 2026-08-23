@@ -90,3 +90,31 @@ check would have failed on every fresh clone while the design was untouched.
 What does not exist yet: any running application. There is no `apps/` directory,
 no frontend, no server. The next session starts the flow state machine, which
 everything downstream drives off.
+
+---
+
+## 2026-08-23 — Session 03: opening state
+
+Two entries close out session 02, which ran past the midday pause the record
+above describes. The app got built: `apps/web` as a Vite + React workspace, the
+flow state machine in `lib/flow.ts` with its transition table under test, the
+frozen library read through `lib/library.ts`, the contextual store in
+`lib/context.ts` populated last so unset values read as "not configured", voice
+in and out through `lib/speech.ts` (browser recognition, so nothing leaves the
+device; synthesis reading locked library text only, standing in for the
+pre-recorded Chatterbox audio), and the five screens — Welcome, Consent,
+Standby, Live, Handover — assembled in `App.tsx` as one page. Then SANA got its
+voice: `lib/copy.ts` centralises every user-facing string so the wording lives
+in one reviewable place rather than scattered through JSX, and the screens were
+rewritten against it, with two things the earlier record had wrong corrected in
+passing.
+
+The session opens with the tree clean, `main` level with `origin/main` at
+`4a66ccf`, and `npm run verify` green end to end: token drift check, Qatar
+dressing check, typecheck across both projects, lint, and 28 tests across two
+files (17 protocol-library, 11 flow). Five days to the QDB demo. What still
+does not exist: any server or API — the frozen-library hash gate the
+architecture calls for has no boot to refuse, since escalation deliberately has
+no server-side implementation; the real Chatterbox audio, still stood in for by
+browser synthesis; and the incident record derived from the event log. Nothing
+has run in front of a reviewer yet.
