@@ -118,3 +118,27 @@ architecture calls for has no boot to refuse, since escalation deliberately has
 no server-side implementation; the real Chatterbox audio, still stood in for by
 browser synthesis; and the incident record derived from the event log. Nothing
 has run in front of a reviewer yet.
+
+---
+
+## 2026-08-24 — Session 04: opening state
+
+The project resumes with nothing lost since session 03 closed: the tree is
+clean, `main` sits level with `origin/main` at `a6c0289`, and `npm run verify`
+runs green end to end — token drift check, Qatar dressing check (all seven
+dressed strings at their expected counts), typecheck across both projects,
+lint, and 28 tests across two files (17 protocol-library, 11 flow). What exists
+today is the whole front half of SANA: the reconciled master prompt and four
+decision records; `tools/extract_tokens.py`, which deterministically pulls the
+design system out of the Claude Design bundle and fails CI on drift; the frozen,
+content-addressed protocol library of three protocols and twenty-two steps, all
+still `clinician_review: pending`; and `apps/web`, a Vite + React single page
+carrying the five screens — Welcome, Consent, Standby, Live, Handover — driven
+by the `lib/flow.ts` state machine whose transition table makes GUIDING
+reachable only through a human confirmation and ESCALATED only through a human
+tap, with voice in and out via `lib/speech.ts` and every user-facing string
+centralised in `lib/copy.ts`. What still does not exist, four days out from the
+QDB demo on 28 August: any server or API, so the frozen-library hash gate has no
+boot to refuse; the real pre-recorded Chatterbox audio, still stood in for by
+browser speech synthesis; the incident record derived from the append-only event
+log; and a single run-through in front of a reviewer.
