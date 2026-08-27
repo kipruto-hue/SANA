@@ -1,14 +1,18 @@
 /**
- * Voice in and voice out, using what the browser already has.
+ * Voice **in** only.
  *
- * Speech recognition is the browser's own, so nothing leaves the device and
- * there is no key to configure for the demo. Where it is unavailable the
- * caller falls back to typing — the flow is identical either way, because the
- * screen is the backup channel by design, not an afterthought.
+ * Speech recognition is the browser's own, driving the live captions so the
+ * screen is never silent while someone is talking. Nothing leaves the device
+ * on this path. Where it is unavailable the caller falls back to typing — the
+ * flow is identical either way, because the screen is the backup channel by
+ * design, not an afterthought.
  *
- * Speech synthesis here reads locked library text only. It is a stand-in for
- * the pre-recorded Chatterbox audio, and it never speaks anything a model
- * wrote: every string passed in comes from the frozen library.
+ * Voice **out** is not here. It used to be: the browser's speech synthesis
+ * read locked library text as a stand-in until the real audio existed. It has
+ * been removed rather than left as a fallback. SANA has one voice, Fish Audio,
+ * playing pre-generated files from `voice.ts`; a second voice that sounds
+ * nothing like the first is worse than silence, and synthesising medical
+ * wording on the device at read time is what rule nine exists to prevent.
  */
 
 /**
@@ -114,29 +118,3 @@ export const listen = (
     },
   };
 };
-
-let currentUtterance: SpeechSynthesisUtterance | null = null;
-
-/**
- * Speak a line from the library.
- *
- * Paced deliberately slowly. Master prompt section 2: calm is the product, and
- * a frightened person cannot follow speech delivered at conversational speed.
- */
-export const speak = (text: string): void => {
-  if (typeof speechSynthesis === 'undefined') return;
-  speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.rate = 0.9;
-  utterance.pitch = 1;
-  currentUtterance = utterance;
-  speechSynthesis.speak(utterance);
-};
-
-export const stopSpeaking = (): void => {
-  if (typeof speechSynthesis === 'undefined') return;
-  speechSynthesis.cancel();
-  currentUtterance = null;
-};
-
-export const isSpeaking = (): boolean => currentUtterance !== null;

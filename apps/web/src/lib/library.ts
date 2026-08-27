@@ -36,6 +36,10 @@ export const LINES = systemLines.lines as Record<string, { text: string; audio: 
 export const line = (name: keyof typeof LINES | string): string =>
   LINES[name]?.text ?? '';
 
+/** The generated audio file for a locked system line. */
+export const lineAudio = (name: keyof typeof LINES | string): string =>
+  LINES[name]?.audio ?? '';
+
 /** True when a named clinician has signed off every script. */
 export const FULLY_REVIEWED = PROTOCOLS.every((p) => p.clinician_review.status === 'approved');
 

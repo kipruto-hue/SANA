@@ -3,10 +3,11 @@ import { useCallback, useEffect, useRef, useState, type Dispatch } from 'react';
 import { LIVE } from '../lib/copy.js';
 import { canDial, type SiteContext } from '../lib/context.js';
 import { currentStep, PHASE_LABEL, type Action, type State } from '../lib/flow.js';
-import { CONFIDENCE_THRESHOLD, line } from '../lib/library.js';
+import { CONFIDENCE_THRESHOLD, line, lineAudio } from '../lib/library.js';
 import { selectProtocol } from '../lib/nlu.js';
-import { listen, speak, speechSupported, stopSpeaking, type Listener } from '../lib/speech.js';
+import { listen, speechSupported, type Listener } from '../lib/speech.js';
 import { recordTurn, transcribe, whisperConfigured, type Heard, type Turn } from '../lib/stt.js';
+import { confirmAudio, play, stopVoice } from '../lib/voice.js';
 
 /** Held longer than this and releasing ends the turn; a quick tap latches on. */
 const HOLD_MS = 500;
@@ -40,26 +41,30 @@ export const Live = ({
   const dialable = canDial(context);
 
   /**
-   * Speak locked wording, and record that it was spoken.
+   * Play a locked line, and record what actually happened.
    *
-   * Everything SANA says goes through here, which is what makes the `ref`
-   * argument meaningful: it names where in the frozen library the wording came
-   * from, so the log can show provenance for every line without copying the
-   * medical text into a second place that could drift from the reviewed one.
+   * Everything SANA says goes through here, which is what makes `ref`
+   * meaningful: it names where in the frozen library the line came from, so
+   * the log shows provenance without copying medical text into a second place
+   * that could drift from the reviewed one.
+   *
+   * A missing file is recorded as silence rather than swallowed. Until the
+   * Fish Audio voice is generated most lines will be silent, and a record that
+   * quietly implied they were spoken would be worse than one that says so.
    */
   const say = useCallback(
-    (text: string, ref: string) => {
-      speak(text);
-      dispatch({ type: 'SPOKE', ref });
+    async (audioPath: string, ref: string) => {
+      const result = await play(audioPath);
+      dispatch({ type: 'SPOKE', ref, outcome: result === 'played' ? 'played' : 'silent' });
     },
     [dispatch],
   );
 
   // Acknowledge the moment the session opens, so there is never dead silence.
   useEffect(() => {
-    say(line('acknowledge'), 'system line “acknowledge”');
+    void say(lineAudio('acknowledge'), 'system line “acknowledge”');
     return () => {
-      stopSpeaking();
+      stopVoice();
       listener.current?.stop();
       turn.current?.cancel();
     };
@@ -70,15 +75,15 @@ export const Live = ({
   // Read each step aloud as it arrives. Locked library wording only.
   useEffect(() => {
     if (state.phase === 'guiding' && step && state.protocol) {
-      say(step.text, `${state.protocol.id} step ${step.n}`);
+      void say(step.audio, `${state.protocol.id} step ${step.n}`);
     }
   }, [state.phase, step, state.protocol, say]);
 
   useEffect(() => {
     if (state.phase === 'confirming' && state.match) {
-      say(state.match.protocol.confirm_prompt, `${state.match.protocol.id} confirm prompt`);
+      void say(confirmAudio(state.match.protocol.id), `${state.match.protocol.id} confirm prompt`);
     }
-    if (state.phase === 'unmatched') say(line('unmatched'), 'system line “unmatched”');
+    if (state.phase === 'unmatched') void say(lineAudio('unmatched'), 'system line “unmatched”');
   }, [state.phase, state.match, say]);
 
   const stopListening = useCallback(() => {
@@ -110,7 +115,7 @@ export const Live = ({
       if (!said) return;
       dispatch({ type: 'TRANSCRIPT', text: said });
       dispatch({ type: 'MATCHING', language: heard.language, source: heard.source });
-      say(line('thinking'), 'system line “thinking”');
+      void say(lineAudio('thinking'), 'system line “thinking”');
 
       // A beat of thinking time, so the interface does not snap through
       // matching faster than a frightened person can follow. The selector call
@@ -136,7 +141,7 @@ export const Live = ({
 
   const startListening = useCallback(() => {
     setError('');
-    stopSpeaking();
+    stopVoice();
     latest.current = '';
 
     // Recording runs alongside the browser's recognition, not instead of it:
@@ -279,7 +284,7 @@ export const Live = ({
                 className="btn btn-secondary"
                 type="button"
                 onClick={() => {
-                  say(line('not_right'), 'system line “not_right”');
+                  void say(lineAudio('not_right'), 'system line “not_right”');
                   dispatch({ type: 'HUMAN_REJECTED' });
                 }}
               >
@@ -334,7 +339,9 @@ export const Live = ({
                 type="button"
                 aria-label={LIVE.repeat}
                 title={LIVE.repeat}
-                onClick={() => say(step.text, `${state.protocol?.id ?? 'protocol'} step ${step.n} (repeat)`)}
+                onClick={() =>
+                  void say(step.audio, `${state.protocol?.id ?? 'protocol'} step ${step.n} (repeat)`)
+                }
               >
                 ↻
               </button>
@@ -363,7 +370,7 @@ export const Live = ({
             className="call"
             href={`tel:${context.emergencyNumber.replace(/\s/g, '')}`}
             onClick={() => {
-              say(line('escalation_confirmed'), 'system line “escalation_confirmed”');
+              void say(lineAudio('escalation_confirmed'), 'system line “escalation_confirmed”');
               dispatch({ type: 'HUMAN_TAPPED_CALL', number: context.emergencyNumber });
             }}
           >

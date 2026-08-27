@@ -105,7 +105,7 @@ describe('the log only ever grows', () => {
       { type: 'NEXT_STEP' },
       { type: 'PREV_STEP' },
       { type: 'NEXT_STEP' },
-      { type: 'SPOKE', ref: 'system line “thinking”' },
+      { type: 'SPOKE', ref: 'system line “thinking”', outcome: 'played' },
       { type: 'HUMAN_TAPPED_CALL', number: TEST_NUMBER },
       { type: 'VIEW_HANDOVER' },
       { type: 'RESOLVE' },

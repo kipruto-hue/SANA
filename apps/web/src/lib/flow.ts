@@ -108,8 +108,12 @@ export type Action =
   | { type: 'HUMAN_REJECTED' }
   | { type: 'NEXT_STEP' }
   | { type: 'PREV_STEP' }
-  /** Recorded when locked library wording is read aloud. Provenance, not prose. */
-  | { type: 'SPOKE'; ref: string }
+  /**
+   * Recorded when locked library wording is read aloud, and equally when it
+   * could not be. Provenance, not prose: only a reference into the frozen
+   * library is stored, never the wording.
+   */
+  | { type: 'SPOKE'; ref: string; outcome: 'played' | 'silent' }
   /**
    * Recorded when the model selector could not be used and the on-device
    * matcher ran instead. Stated rather than hidden: a record that stayed
@@ -308,7 +312,17 @@ export const reducer = (state: State, action: Action): State => {
       // wording itself lives in the frozen library, and duplicating it into
       // the log would create a second copy that could drift from the reviewed
       // one.
-      return { ...state, events: log(state, 'spoke', `Read aloud: ${action.ref}`, { ref: action.ref }) };
+      return {
+        ...state,
+        events: log(
+          state,
+          'spoke',
+          action.outcome === 'played'
+            ? `Read aloud: ${action.ref}`
+            : `No recorded audio for ${action.ref} — shown on screen only`,
+          { ref: action.ref, outcome: action.outcome },
+        ),
+      };
 
     case 'SELECTOR_FALLBACK':
       return {
