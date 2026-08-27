@@ -174,3 +174,59 @@ demo device, then audio if the hours are there. The server is not demo-critical
 and should be declared cut rather than half-built, since escalation has no
 server-side implementation by design and there is nothing on the demo path that
 needs a backend.
+
+**Morning.** The master prompt arrived as architectural law — the pipeline
+fixed in order and role, ten rules that must never break, and a sequenced plan
+for the day — and is filed verbatim at `docs/SANA_System_Master_Prompt.md`,
+winning over both the code and the older master prompt wherever they disagree.
+Three of its premises turned out to need correcting before any code was
+written, and two of those corrections came from the record this file keeps.
+First, the morning's task was described as building the append-only log because
+session 05's own opening paragraph said Handover had nothing real behind it.
+That was wrong: the log existed, written by the reducer, and the sheet already
+rendered a timeline from it. What it lacked was the three properties that make
+a log a source of truth. It lived only in React memory, so a refresh
+mid-incident destroyed it; it had no sequence numbers, so two events in the
+same millisecond had no defined order; and the sheet composed its own prose
+from live state and the current site context, which meant editing the site
+today rewrote yesterday's incident — reconstruction, exactly what rule seven
+forbids, done by a component instead of a model. All three are fixed:
+`log.ts` owns the append-only rules and refuses at the storage boundary any
+write that is not an append, `deriveHandover` is a pure function of the log
+alone, and events now carry structured data so no fact is ever recovered by
+parsing English back out of a sentence. The record also stopped flattering
+itself — going back a step is recorded, so the sheet cannot tell a tidier story
+than the one that happened.
+
+Second, and larger: midday was scheduled as a run-through that would exercise
+"the two live API calls", but neither existed. There was no Whisper call and no
+model call anywhere in the repository; speech was the browser's own and protocol
+selection was sixty lines of local cue scoring. Both were built. `nlu.ts` is now
+a real boundary across which exactly two values travel — a protocol id that must
+exist in the frozen library, and a number — assembled field by field so that a
+model returning beautifully worded first-aid steps has them dropped unread, and
+so that escalating, skipping the human confirmation or advancing a step are not
+validated away but simply not expressible. Six adversarial tests hold it.
+Decision 0005 records the two places this is deliberately stricter than section
+1.2 allows: observed facts are re-derived on-device from the library's own cue
+lists, so no model prose ever appears beside the medical decision the human is
+about to make, and conversational glue stays on the eight locked system lines,
+because the pause before guidance is precisely where a frightened person cannot
+tell reviewed prose from generated prose. `stt.ts` gives SANA ears that detect
+the language from the audio rather than from a setting or a downstream guess,
+running the browser's recognition for live captions alongside a recording that
+goes to Whisper when the turn ends. Where no provider is configured the whole
+thing runs on-device and says so in the record, because a log silent about the
+fallback would imply the model had been consulted and agreed.
+
+Third, a smaller correction worth keeping: rule nine's offline promise is
+narrower than it reads. Locked audio plays offline, but Whisper and the selector
+both need the network, so the honest claim is that once a protocol is confirmed
+the guidance keeps reading with no connection — not that SANA works offline.
+Two guards earned their keep during the morning. The decision-0003 lint rule
+rejected test fixtures using a real emergency number, which is exactly how a
+plausible default reaches an app; they use an undiallable placeholder now. And
+a test asserting that model wording never survives the boundary failed because
+it looked for the phrase "back blows" — which is in the library's own reviewed
+choking steps, and belongs there. Forty-eight tests green, production build
+clean, five commits pushed.
