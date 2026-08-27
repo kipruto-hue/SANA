@@ -106,7 +106,7 @@ export const Standby = ({
         <button
           className="btn btn-primary panic"
           type="button"
-          onClick={() => dispatch({ type: 'START_EMERGENCY' })}
+          onClick={() => dispatch({ type: 'START_EMERGENCY', context })}
         >
           {STANDBY.primary}
         </button>

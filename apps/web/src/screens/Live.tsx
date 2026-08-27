@@ -36,24 +36,46 @@ export const Live = ({
   const step = currentStep(state);
   const dialable = canDial(context);
 
+  /**
+   * Speak locked wording, and record that it was spoken.
+   *
+   * Everything SANA says goes through here, which is what makes the `ref`
+   * argument meaningful: it names where in the frozen library the wording came
+   * from, so the log can show provenance for every line without copying the
+   * medical text into a second place that could drift from the reviewed one.
+   */
+  const say = useCallback(
+    (text: string, ref: string) => {
+      speak(text);
+      dispatch({ type: 'SPOKE', ref });
+    },
+    [dispatch],
+  );
+
   // Acknowledge the moment the session opens, so there is never dead silence.
   useEffect(() => {
-    speak(line('acknowledge'));
+    say(line('acknowledge'), 'system line “acknowledge”');
     return () => {
       stopSpeaking();
       listener.current?.stop();
     };
+    // Once, when the session opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Read each step aloud as it arrives. Locked library wording only.
   useEffect(() => {
-    if (state.phase === 'guiding' && step) speak(step.text);
-  }, [state.phase, step]);
+    if (state.phase === 'guiding' && step && state.protocol) {
+      say(step.text, `${state.protocol.id} step ${step.n}`);
+    }
+  }, [state.phase, step, state.protocol, say]);
 
   useEffect(() => {
-    if (state.phase === 'confirming' && state.match) speak(state.match.protocol.confirm_prompt);
-    if (state.phase === 'unmatched') speak(line('unmatched'));
-  }, [state.phase, state.match]);
+    if (state.phase === 'confirming' && state.match) {
+      say(state.match.protocol.confirm_prompt, `${state.match.protocol.id} confirm prompt`);
+    }
+    if (state.phase === 'unmatched') say(line('unmatched'), 'system line “unmatched”');
+  }, [state.phase, state.match, say]);
 
   const stopListening = useCallback(() => {
     listener.current?.stop();
@@ -68,7 +90,7 @@ export const Live = ({
       stopListening();
       dispatch({ type: 'TRANSCRIPT', text: said });
       dispatch({ type: 'MATCHING' });
-      speak(line('thinking'));
+      say(line('thinking'), 'system line “thinking”');
 
       // A beat of thinking time, so the interface does not snap through
       // matching faster than a frightened person can follow.
@@ -81,7 +103,7 @@ export const Live = ({
         }
       }, 900);
     },
-    [dispatch, stopListening],
+    [dispatch, say, stopListening],
   );
 
   const startListening = useCallback(() => {
@@ -217,7 +239,7 @@ export const Live = ({
                 className="btn btn-secondary"
                 type="button"
                 onClick={() => {
-                  speak(line('not_right'));
+                  say(line('not_right'), 'system line “not_right”');
                   dispatch({ type: 'HUMAN_REJECTED' });
                 }}
               >
@@ -272,7 +294,7 @@ export const Live = ({
                 type="button"
                 aria-label={LIVE.repeat}
                 title={LIVE.repeat}
-                onClick={() => speak(step.text)}
+                onClick={() => say(step.text, `${state.protocol?.id ?? 'protocol'} step ${step.n} (repeat)`)}
               >
                 ↻
               </button>
@@ -301,8 +323,8 @@ export const Live = ({
             className="call"
             href={`tel:${context.emergencyNumber.replace(/\s/g, '')}`}
             onClick={() => {
-              speak(line('escalation_confirmed'));
-              dispatch({ type: 'HUMAN_TAPPED_CALL' });
+              say(line('escalation_confirmed'), 'system line “escalation_confirmed”');
+              dispatch({ type: 'HUMAN_TAPPED_CALL', number: context.emergencyNumber });
             }}
           >
             {LIVE.call(context.emergencyNumber)}

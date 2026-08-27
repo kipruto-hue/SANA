@@ -125,6 +125,16 @@ export const HANDOVER = {
   timeline: 'Timeline',
   copy: 'Copy for the record',
   copied: 'Copied',
+  save: 'Save a copy',
+  /**
+   * Said plainly because it is the honest shape of the demo: there is no
+   * server, so the record leaves this device only when the operator saves it.
+   */
+  saveHint: 'The record is kept on this device. Saving writes it out as a file you can hand on.',
+  chosenBy: (selector: string) =>
+    selector === 'llm'
+      ? 'Protocol chosen by the language model, confirmed by the operator.'
+      : 'Protocol chosen on this device, confirmed by the operator.',
   backToSession: 'Back to session',
   finish: 'Finish',
   provenance: (title: string) =>

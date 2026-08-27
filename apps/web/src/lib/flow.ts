@@ -1,4 +1,12 @@
+import type { SiteContext } from './context.js';
 import type { Match, Protocol } from './library.js';
+import {
+  append,
+  newIncidentId,
+  type EventData,
+  type EventKind,
+  type LoggedEvent,
+} from './log.js';
 
 /**
  * The flow SANA is allowed to take, as data.
@@ -23,14 +31,17 @@ export type Phase =
   | 'unmatched'
   | 'resolved';
 
-export interface IncidentEvent {
-  readonly at: number;
-  readonly kind: string;
-  readonly detail: string;
-}
+/**
+ * The log's event type lives in `log.js`, which owns the append-only rules.
+ * Re-exported under the old name so nothing downstream has to care where the
+ * guarantees are enforced.
+ */
+export type IncidentEvent = LoggedEvent;
 
 export interface State {
   readonly screen: Screen;
+  /** Identifies this incident's log, so a resumed record is never merged. */
+  readonly incidentId: string;
   /** The screen we came from, so a transition knows which way to travel. */
   readonly previousScreen: Screen;
   readonly phase: Phase;
@@ -51,11 +62,12 @@ export interface State {
   readonly escalatedAt: number | null;
   readonly escalated: boolean;
   readonly startedAt: number | null;
-  readonly events: readonly IncidentEvent[];
+  readonly events: readonly LoggedEvent[];
 }
 
 export const initialState: State = {
   screen: 'welcome',
+  incidentId: '',
   previousScreen: 'welcome',
   phase: 'listening',
   operator: '',
@@ -75,7 +87,13 @@ export const initialState: State = {
 export type Action =
   | { type: 'SIGN_IN'; operator: string }
   | { type: 'CONSENT_GIVEN' }
-  | { type: 'START_EMERGENCY' }
+  /**
+   * Carries the site context so the record is self-contained: where SANA was
+   * and what number it had are facts about the incident, and reading them off
+   * a store that can be edited afterwards would make the record a view of
+   * today's settings rather than of what happened.
+   */
+  | { type: 'START_EMERGENCY'; context: SiteContext }
   | { type: 'TRANSCRIPT'; text: string }
   | { type: 'MATCHING' }
   | { type: 'MATCHED'; match: Match }
@@ -85,17 +103,28 @@ export type Action =
   | { type: 'HUMAN_REJECTED' }
   | { type: 'NEXT_STEP' }
   | { type: 'PREV_STEP' }
+  /** Recorded when locked library wording is read aloud. Provenance, not prose. */
+  | { type: 'SPOKE'; ref: string }
   /** Recorded after the human taps the dial control. SANA never dials. */
-  | { type: 'HUMAN_TAPPED_CALL' }
+  | { type: 'HUMAN_TAPPED_CALL'; number: string }
   | { type: 'RESOLVE' }
   | { type: 'VIEW_HANDOVER' }
   | { type: 'BACK_TO_LIVE' }
   | { type: 'RESET' };
 
-const log = (state: State, kind: string, detail: string): IncidentEvent[] => [
-  ...state.events,
-  { at: Date.now(), kind, detail },
-];
+/**
+ * Record one event.
+ *
+ * Deterministic system code, master prompt section 1.5: every call site below
+ * is a thing that demonstrably happened, written the instant it happened. No
+ * model reaches this function, and nothing here infers anything.
+ */
+const log = (
+  state: State,
+  kind: EventKind,
+  detail: string,
+  data?: EventData,
+): readonly LoggedEvent[] => append(state.events, kind, detail, data);
 
 export const reducer = (state: State, action: Action): State => {
   switch (action.type) {
@@ -114,14 +143,26 @@ export const reducer = (state: State, action: Action): State => {
       // A fresh incident. Everything from any previous one is cleared so no
       // observation can bleed across incidents into a new record.
       const startedAt = Date.now();
+      const { site, zone, emergencyNumber, safetyOfficer, hospital } = action.context;
       return {
         ...initialState,
+        incidentId: newIncidentId(startedAt),
         operator: state.operator,
         consented: true,
         screen: 'live',
         phase: 'listening',
         startedAt,
-        events: [{ at: startedAt, kind: 'started', detail: 'Emergency session started' }],
+        // The site is recorded here, not read at render time, so the sheet
+        // reports where SANA was during the incident even if the settings are
+        // edited afterwards.
+        events: append([], 'started', 'Emergency session started', {
+          operator: state.operator,
+          site,
+          zone,
+          emergencyNumber,
+          safetyOfficer,
+          hospital,
+        }, startedAt),
       };
     }
 
@@ -132,7 +173,7 @@ export const reducer = (state: State, action: Action): State => {
       return {
         ...state,
         phase: 'matching',
-        events: log(state, 'described', state.transcript),
+        events: log(state, 'described', state.transcript, { transcript: state.transcript }),
       };
 
     case 'MATCHED':
@@ -145,6 +186,16 @@ export const reducer = (state: State, action: Action): State => {
           state,
           'suggested',
           `Suggested "${action.match.protocol.title}" (${Math.round(action.match.confidence * 100)}% confidence) — awaiting human confirmation`,
+          {
+            protocolId: action.match.protocol.id,
+            title: action.match.protocol.title,
+            confidence: action.match.confidence,
+            // Which selector chose it. The record must be able to say whether
+            // a model was in the loop for this match, not merely that a match
+            // happened.
+            selector: action.match.selector,
+            observed: action.match.matched.join('; '),
+          },
         ),
       };
 
@@ -153,7 +204,9 @@ export const reducer = (state: State, action: Action): State => {
         ...state,
         phase: 'unmatched',
         match: null,
-        events: log(state, 'unmatched', 'No confident match — advised calling for help'),
+        events: log(state, 'unmatched', 'No confident match — advised calling for help', {
+          transcript: state.transcript,
+        }),
       };
 
     case 'HUMAN_CONFIRMED': {
@@ -166,7 +219,11 @@ export const reducer = (state: State, action: Action): State => {
         protocol: state.match.protocol,
         stepIndex: 0,
         furthestStep: 0,
-        events: log(state, 'confirmed', `Human confirmed: ${state.match.protocol.title}`),
+        events: log(state, 'confirmed', `Human confirmed: ${state.match.protocol.title}`, {
+          protocolId: state.match.protocol.id,
+          title: state.match.protocol.title,
+          totalSteps: state.match.protocol.steps.length,
+        }),
       };
     }
 
@@ -177,7 +234,14 @@ export const reducer = (state: State, action: Action): State => {
         match: null,
         transcript: '',
         facts: [],
-        events: log(state, 'rejected', 'Human rejected the suggested match'),
+        events: log(
+          state,
+          'rejected',
+          state.match
+            ? `Human rejected the suggested match: ${state.match.protocol.title}`
+            : 'Human rejected the suggested match',
+          state.match ? { protocolId: state.match.protocol.id, title: state.match.protocol.title } : undefined,
+        ),
       };
 
     case 'NEXT_STEP': {
@@ -187,7 +251,10 @@ export const reducer = (state: State, action: Action): State => {
         return {
           ...state,
           phase: 'resolved',
-          events: log(state, 'completed', `Completed all ${state.protocol.steps.length} steps`),
+          events: log(state, 'completed', `Completed all ${state.protocol.steps.length} steps`, {
+            protocolId: state.protocol.id,
+            totalSteps: state.protocol.steps.length,
+          }),
         };
       }
       const next = state.stepIndex + 1;
@@ -195,12 +262,38 @@ export const reducer = (state: State, action: Action): State => {
         ...state,
         stepIndex: next,
         furthestStep: Math.max(state.furthestStep, next),
-        events: log(state, 'step', `Step ${next + 1} of ${state.protocol.steps.length} read`),
+        events: log(state, 'step', `Step ${next + 1} of ${state.protocol.steps.length} read`, {
+          protocolId: state.protocol.id,
+          n: next + 1,
+          totalSteps: state.protocol.steps.length,
+          direction: 'forward',
+        }),
       };
     }
 
-    case 'PREV_STEP':
-      return state.stepIndex > 0 ? { ...state, stepIndex: state.stepIndex - 1 } : state;
+    case 'PREV_STEP': {
+      // Recorded like any other move. A record that showed only forward
+      // progress would be a tidier story than the one that actually happened.
+      if (state.stepIndex <= 0 || !state.protocol) return state;
+      const back = state.stepIndex - 1;
+      return {
+        ...state,
+        stepIndex: back,
+        events: log(state, 'step', `Went back to step ${back + 1} of ${state.protocol.steps.length}`, {
+          protocolId: state.protocol.id,
+          n: back + 1,
+          totalSteps: state.protocol.steps.length,
+          direction: 'back',
+        }),
+      };
+    }
+
+    case 'SPOKE':
+      // Provenance for what was read aloud. Only a reference is stored: the
+      // wording itself lives in the frozen library, and duplicating it into
+      // the log would create a second copy that could drift from the reviewed
+      // one.
+      return { ...state, events: log(state, 'spoke', `Read aloud: ${action.ref}`, { ref: action.ref }) };
 
     case 'HUMAN_TAPPED_CALL':
       // Recording only. Nothing here dials -- the screen renders a tel: link
@@ -211,7 +304,7 @@ export const reducer = (state: State, action: Action): State => {
         ...state,
         escalated: true,
         escalatedAt: Date.now(),
-        events: log(state, 'escalated', 'Human tapped call for help'),
+        events: log(state, 'escalated', 'Human tapped call for help', { number: action.number }),
       };
 
     case 'RESOLVE':
@@ -223,7 +316,7 @@ export const reducer = (state: State, action: Action): State => {
       };
 
     case 'VIEW_HANDOVER':
-      return { ...state, screen: 'handover' };
+      return { ...state, screen: 'handover', events: log(state, 'viewed', 'Handover record opened') };
 
     case 'BACK_TO_LIVE':
       return { ...state, screen: 'live' };

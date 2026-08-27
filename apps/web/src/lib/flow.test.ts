@@ -1,10 +1,29 @@
 import { describe, expect, it } from 'vitest';
 
+import { EMPTY_CONTEXT } from './context.js';
 import { initialState, reducer, type Action, type State } from './flow.js';
 import { CONFIDENCE_THRESHOLD, matchProtocol, PROTOCOLS } from './library.js';
 
 const run = (actions: readonly Action[], from: State = initialState): State =>
   actions.reduce(reducer, from);
+
+/**
+ * A deliberately impossible number.
+ *
+ * Not a real emergency number even in tests: decision 0003 bans the literals,
+ * and a fixture using a plausible one is how a plausible one ends up in the
+ * app. What matters here is that whatever was configured is what the record
+ * reports, so the value only has to be recognisable.
+ */
+const TEST_NUMBER = 'TEST-NUMBER-NOT-DIALLABLE';
+
+/** A configured site, so the record has a number and a place to record. */
+const SITE = {
+  ...EMPTY_CONTEXT,
+  site: 'Lusail Tower B',
+  zone: 'Level 14',
+  emergencyNumber: TEST_NUMBER,
+};
 
 const describedFainting = (): State => {
   const match = matchProtocol('she collapsed and will not wake up but she is still breathing');
@@ -12,7 +31,7 @@ const describedFainting = (): State => {
   return run([
     { type: 'SIGN_IN', operator: 'Amina' },
     { type: 'CONSENT_GIVEN' },
-    { type: 'START_EMERGENCY' },
+    { type: 'START_EMERGENCY', context: SITE },
     { type: 'TRANSCRIPT', text: 'she collapsed and will not wake up but she is still breathing' },
     { type: 'MATCHING' },
     { type: 'MATCHED', match: match! },
@@ -30,7 +49,7 @@ describe('the human owns the match', () => {
       { type: 'NEXT_STEP' },
       { type: 'PREV_STEP' },
       { type: 'TRANSCRIPT', text: 'anything at all' },
-      { type: 'HUMAN_TAPPED_CALL' },
+      { type: 'HUMAN_TAPPED_CALL', number: TEST_NUMBER },
       { type: 'MATCHING' },
     ];
     for (const action of others) {
@@ -48,7 +67,7 @@ describe('the human owns the match', () => {
     const listening = run([
       { type: 'SIGN_IN', operator: 'Amina' },
       { type: 'CONSENT_GIVEN' },
-      { type: 'START_EMERGENCY' },
+      { type: 'START_EMERGENCY', context: SITE },
     ]);
     expect(reducer(listening, { type: 'HUMAN_CONFIRMED' }).phase).toBe('listening');
     expect(reducer(listening, { type: 'HUMAN_CONFIRMED' }).protocol).toBeNull();
@@ -66,7 +85,7 @@ describe('the human owns the match', () => {
 describe('escalation is recorded, never performed', () => {
   it('records the tap without changing what SANA is doing', () => {
     const guiding = reducer(describedFainting(), { type: 'HUMAN_CONFIRMED' });
-    const called = reducer(guiding, { type: 'HUMAN_TAPPED_CALL' });
+    const called = reducer(guiding, { type: 'HUMAN_TAPPED_CALL', number: TEST_NUMBER });
     expect(called.escalated).toBe(true);
     // The dial itself is a tel: link the human taps. Nothing in the flow
     // performs it, so guidance carries on exactly as before.
@@ -78,7 +97,7 @@ describe('escalation is recorded, never performed', () => {
     const everyOtherAction: Action[] = [
       { type: 'SIGN_IN', operator: 'A' },
       { type: 'CONSENT_GIVEN' },
-      { type: 'START_EMERGENCY' },
+      { type: 'START_EMERGENCY', context: SITE },
       { type: 'MATCHING' },
       { type: 'UNMATCHED' },
       { type: 'HUMAN_CONFIRMED' },
@@ -99,7 +118,7 @@ describe('uncertainty does not become a guess', () => {
     const state = run([
       { type: 'SIGN_IN', operator: 'A' },
       { type: 'CONSENT_GIVEN' },
-      { type: 'START_EMERGENCY' },
+      { type: 'START_EMERGENCY', context: SITE },
       { type: 'MATCHING' },
       { type: 'UNMATCHED' },
     ]);
@@ -125,7 +144,7 @@ describe('uncertainty does not become a guess', () => {
 describe('the incident record', () => {
   it('is built from events the flow logged, not written afterwards', () => {
     const state = run(
-      [{ type: 'HUMAN_CONFIRMED' }, { type: 'NEXT_STEP' }, { type: 'HUMAN_TAPPED_CALL' }],
+      [{ type: 'HUMAN_CONFIRMED' }, { type: 'NEXT_STEP' }, { type: 'HUMAN_TAPPED_CALL', number: TEST_NUMBER }],
       describedFainting(),
     );
     const kinds = state.events.map((event) => event.kind);
@@ -142,7 +161,7 @@ describe('the incident record', () => {
 
   it('does not carry observations from one incident into the next', () => {
     const finished = reducer(describedFainting(), { type: 'HUMAN_CONFIRMED' });
-    const fresh = reducer(finished, { type: 'START_EMERGENCY' });
+    const fresh = reducer(finished, { type: 'START_EMERGENCY', context: SITE });
     expect(fresh.protocol).toBeNull();
     expect(fresh.facts).toEqual([]);
     expect(fresh.transcript).toBe('');

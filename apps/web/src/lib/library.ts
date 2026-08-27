@@ -39,10 +39,19 @@ export const line = (name: keyof typeof LINES | string): string =>
 /** True when a named clinician has signed off every script. */
 export const FULLY_REVIEWED = PROTOCOLS.every((p) => p.clinician_review.status === 'approved');
 
+/** Which component chose the protocol. Recorded, so the record can say. */
+export type Selector = 'on-device' | 'llm';
+
 export interface Match {
   readonly protocol: Protocol;
   readonly confidence: number;
   readonly matched: readonly string[];
+  /**
+   * Whichever selector produced this. The handover has to be able to state
+   * whether a model was in the loop for the match, and an unlabelled match
+   * makes that unanswerable after the fact.
+   */
+  readonly selector: Selector;
 }
 
 const STOPWORDS = new Set([
@@ -94,7 +103,7 @@ export const matchProtocol = (transcript: string): Match | null => {
     if (matched.length === 0) continue;
     const confidence = Math.min(0.95, score / 2.5);
     if (!best || confidence > best.confidence) {
-      best = { protocol, confidence, matched };
+      best = { protocol, confidence, matched, selector: 'on-device' };
     }
   }
 
