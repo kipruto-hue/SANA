@@ -6,6 +6,7 @@ import { currentStep, PHASE_LABEL, type Action, type State } from '../lib/flow.j
 import { CONFIDENCE_THRESHOLD, line } from '../lib/library.js';
 import { selectProtocol } from '../lib/nlu.js';
 import { listen, speak, speechSupported, stopSpeaking, type Listener } from '../lib/speech.js';
+import { recordTurn, transcribe, whisperConfigured, type Heard, type Turn } from '../lib/stt.js';
 
 /** Held longer than this and releasing ends the turn; a quick tap latches on. */
 const HOLD_MS = 500;
@@ -32,6 +33,7 @@ export const Live = ({
   const [typed, setTyped] = useState('');
   const [error, setError] = useState('');
   const listener = useRef<Listener | null>(null);
+  const turn = useRef<Turn | null>(null);
   const heldFrom = useRef<number>(0);
   const latest = useRef<string>('');
   const step = currentStep(state);
@@ -59,6 +61,7 @@ export const Live = ({
     return () => {
       stopSpeaking();
       listener.current?.stop();
+      turn.current?.cancel();
     };
     // Once, when the session opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -85,12 +88,28 @@ export const Live = ({
   }, []);
 
   const submit = useCallback(
-    (text: string) => {
-      const said = text.trim();
-      if (!said) return;
+    async (text: string) => {
+      const onDevice = text.trim();
+      const recorder = turn.current;
+      turn.current = null;
+      if (!onDevice && !recorder) return;
       stopListening();
+
+      // What the device heard is the starting point; Whisper's transcript
+      // replaces it when there is one. The captions have already shown the
+      // device's version, so this only ever corrects what is on screen —
+      // it never leaves the screen blank while waiting.
+      let heard: Heard = { text: onDevice, language: '', source: 'on-device' };
+      if (recorder) {
+        const audio = await recorder.stop();
+        const whisper = audio ? await transcribe(audio) : null;
+        if (whisper) heard = whisper;
+      }
+
+      const said = heard.text.trim();
+      if (!said) return;
       dispatch({ type: 'TRANSCRIPT', text: said });
-      dispatch({ type: 'MATCHING' });
+      dispatch({ type: 'MATCHING', language: heard.language, source: heard.source });
       say(line('thinking'), 'system line “thinking”');
 
       // A beat of thinking time, so the interface does not snap through
@@ -119,18 +138,30 @@ export const Live = ({
     setError('');
     stopSpeaking();
     latest.current = '';
+
+    // Recording runs alongside the browser's recognition, not instead of it:
+    // one gives captions immediately, the other gives the transcript the
+    // record keeps. Started without awaiting so the microphone opens while
+    // the person is already talking.
+    if (whisperConfigured()) {
+      void recordTurn().then((started) => {
+        turn.current = started;
+      });
+    }
     const active = listen(
       (text, final) => {
         latest.current = text;
         dispatch({ type: 'TRANSCRIPT', text });
-        if (final) submit(text);
+        if (final) void submit(text);
       },
       (message) => {
         setError(message);
         setListening(false);
       },
     );
-    if (!active) {
+    if (!active && !whisperConfigured()) {
+      // No ears at all. The typing fallback is the backup channel by design,
+      // not an afterthought, so this is a message rather than a dead end.
       setError(LIVE.micUnsupported);
       return;
     }
@@ -148,12 +179,12 @@ export const Live = ({
   const onRelease = () => {
     const held = Date.now() - heldFrom.current;
     if (!listening) return;
-    if (held >= HOLD_MS) submit(latest.current || state.transcript);
+    if (held >= HOLD_MS) void submit(latest.current || state.transcript);
   };
 
   const onTap = () => {
     if (Date.now() - heldFrom.current >= HOLD_MS) return; // the hold already handled it
-    if (listening) submit(latest.current || state.transcript);
+    if (listening) void submit(latest.current || state.transcript);
   };
 
   const total = state.protocol?.steps.length ?? 0;
@@ -193,7 +224,7 @@ export const Live = ({
                 className="field"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  submit(typed);
+                  void submit(typed);
                   setTyped('');
                 }}
               >

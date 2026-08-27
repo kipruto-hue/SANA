@@ -95,7 +95,12 @@ export type Action =
    */
   | { type: 'START_EMERGENCY'; context: SiteContext }
   | { type: 'TRANSCRIPT'; text: string }
-  | { type: 'MATCHING' }
+  /**
+   * Carries how the transcript was obtained. Section 1.1: the language is
+   * detected from the audio, so the record states which ears heard it and what
+   * they detected rather than leaving a reader to assume.
+   */
+  | { type: 'MATCHING'; language: string; source: string }
   | { type: 'MATCHED'; match: Match }
   | { type: 'UNMATCHED' }
   /** The only door into GUIDING. */
@@ -179,7 +184,11 @@ export const reducer = (state: State, action: Action): State => {
       return {
         ...state,
         phase: 'matching',
-        events: log(state, 'described', state.transcript, { transcript: state.transcript }),
+        events: log(state, 'described', state.transcript, {
+          transcript: state.transcript,
+          language: action.language,
+          heardBy: action.source,
+        }),
       };
 
     case 'MATCHED':

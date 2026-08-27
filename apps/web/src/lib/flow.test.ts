@@ -33,7 +33,7 @@ const describedFainting = (): State => {
     { type: 'CONSENT_GIVEN' },
     { type: 'START_EMERGENCY', context: SITE },
     { type: 'TRANSCRIPT', text: 'she collapsed and will not wake up but she is still breathing' },
-    { type: 'MATCHING' },
+    { type: 'MATCHING', language: 'en', source: 'on-device' },
     { type: 'MATCHED', match: match! },
   ]);
 };
@@ -50,7 +50,7 @@ describe('the human owns the match', () => {
       { type: 'PREV_STEP' },
       { type: 'TRANSCRIPT', text: 'anything at all' },
       { type: 'HUMAN_TAPPED_CALL', number: TEST_NUMBER },
-      { type: 'MATCHING' },
+      { type: 'MATCHING', language: 'en', source: 'on-device' },
     ];
     for (const action of others) {
       expect(reducer(state, action).phase, `${action.type} must not start guidance`).not.toBe(
@@ -98,7 +98,7 @@ describe('escalation is recorded, never performed', () => {
       { type: 'SIGN_IN', operator: 'A' },
       { type: 'CONSENT_GIVEN' },
       { type: 'START_EMERGENCY', context: SITE },
-      { type: 'MATCHING' },
+      { type: 'MATCHING', language: 'en', source: 'on-device' },
       { type: 'UNMATCHED' },
       { type: 'HUMAN_CONFIRMED' },
       { type: 'NEXT_STEP' },
@@ -119,7 +119,7 @@ describe('uncertainty does not become a guess', () => {
       { type: 'SIGN_IN', operator: 'A' },
       { type: 'CONSENT_GIVEN' },
       { type: 'START_EMERGENCY', context: SITE },
-      { type: 'MATCHING' },
+      { type: 'MATCHING', language: 'en', source: 'on-device' },
       { type: 'UNMATCHED' },
     ]);
     expect(state.phase).toBe('unmatched');
