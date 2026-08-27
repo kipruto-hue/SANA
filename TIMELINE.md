@@ -142,3 +142,35 @@ QDB demo on 28 August: any server or API, so the frozen-library hash gate has no
 boot to refuse; the real pre-recorded Chatterbox audio, still stood in for by
 browser speech synthesis; the incident record derived from the append-only event
 log; and a single run-through in front of a reviewer.
+
+---
+
+## 2026-08-27 — Session 05: opening state, one day out
+
+SANA resumes on the eve of the demo. Nothing moved since session 04 opened
+three days ago: the tree is clean, `main` sits level with `origin/main` at
+`5330313`, and `npm run verify` runs green end to end — token drift check,
+Qatar dressing check with all thirteen dressed strings at their expected
+counts, typecheck across both projects, lint, and 28 tests across two files
+(17 protocol-library, 11 flow). The front half of the system is finished and
+holds: the reconciled master prompt and four decision records;
+`tools/extract_tokens.py` pulling the design system deterministically out of
+the Claude Design bundle and failing CI on drift; the frozen,
+content-addressed library of three protocols and twenty-two steps, all still
+`clinician_review: pending`; and `apps/web`, a Vite + React single page
+carrying Welcome, Consent, Standby, Live and Handover, driven by the
+`lib/flow.ts` transition table that makes GUIDING reachable only through a
+human confirmation and ESCALATED only through a human tap, with voice in and
+out via `lib/speech.ts` and every user-facing string centralised in
+`lib/copy.ts`. What is still missing is the same short list session 04 named,
+and the QDB demo is tomorrow: the incident record derived from the append-only
+event log, which is the one gap a reviewer will actually see because Handover
+is the last screen of the run; the real pre-recorded Chatterbox audio, still
+stood in for by browser speech synthesis; any server or API, so the
+frozen-library hash gate has no boot to refuse; and a single uninterrupted
+run-through on the machine the demo will be given from. With one day left the
+order is forced — event log and incident record first, then a rehearsal on the
+demo device, then audio if the hours are there. The server is not demo-critical
+and should be declared cut rather than half-built, since escalation has no
+server-side implementation by design and there is nothing on the demo path that
+needs a backend.
