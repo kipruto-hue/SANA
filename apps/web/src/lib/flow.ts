@@ -105,6 +105,12 @@ export type Action =
   | { type: 'PREV_STEP' }
   /** Recorded when locked library wording is read aloud. Provenance, not prose. */
   | { type: 'SPOKE'; ref: string }
+  /**
+   * Recorded when the model selector could not be used and the on-device
+   * matcher ran instead. Stated rather than hidden: a record that stayed
+   * silent about it would imply the model had been consulted and agreed.
+   */
+  | { type: 'SELECTOR_FALLBACK'; reason: string }
   /** Recorded after the human taps the dial control. SANA never dials. */
   | { type: 'HUMAN_TAPPED_CALL'; number: string }
   | { type: 'RESOLVE' }
@@ -294,6 +300,17 @@ export const reducer = (state: State, action: Action): State => {
       // the log would create a second copy that could drift from the reviewed
       // one.
       return { ...state, events: log(state, 'spoke', `Read aloud: ${action.ref}`, { ref: action.ref }) };
+
+    case 'SELECTOR_FALLBACK':
+      return {
+        ...state,
+        events: log(
+          state,
+          'selector',
+          `Matched on this device — the model selector was not used (${action.reason})`,
+          { reason: action.reason, selector: 'on-device' },
+        ),
+      };
 
     case 'HUMAN_TAPPED_CALL':
       // Recording only. Nothing here dials -- the screen renders a tel: link

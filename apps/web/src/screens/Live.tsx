@@ -3,7 +3,8 @@ import { useCallback, useEffect, useRef, useState, type Dispatch } from 'react';
 import { LIVE } from '../lib/copy.js';
 import { canDial, type SiteContext } from '../lib/context.js';
 import { currentStep, PHASE_LABEL, type Action, type State } from '../lib/flow.js';
-import { CONFIDENCE_THRESHOLD, line, matchProtocol } from '../lib/library.js';
+import { CONFIDENCE_THRESHOLD, line } from '../lib/library.js';
+import { selectProtocol } from '../lib/nlu.js';
 import { listen, speak, speechSupported, stopSpeaking, type Listener } from '../lib/speech.js';
 
 /** Held longer than this and releasing ends the turn; a quick tap latches on. */
@@ -93,15 +94,23 @@ export const Live = ({
       say(line('thinking'), 'system line “thinking”');
 
       // A beat of thinking time, so the interface does not snap through
-      // matching faster than a frightened person can follow.
-      window.setTimeout(() => {
-        const match = matchProtocol(said);
+      // matching faster than a frightened person can follow. The selector call
+      // runs alongside it rather than after it, so a fast answer still waits
+      // and a slow one does not add to the wait.
+      const beat = new Promise((resolve) => window.setTimeout(resolve, 900));
+      void Promise.all([selectProtocol(said), beat]).then(([result]) => {
+        if (result.fallbackReason) {
+          // Recorded, not hidden. A record that did not say the model was
+          // unreachable would imply it had been consulted.
+          dispatch({ type: 'SELECTOR_FALLBACK', reason: result.fallbackReason });
+        }
+        const { match } = result;
         if (match && match.confidence >= CONFIDENCE_THRESHOLD) {
           dispatch({ type: 'MATCHED', match });
         } else {
           dispatch({ type: 'UNMATCHED' });
         }
-      }, 900);
+      });
     },
     [dispatch, say, stopListening],
   );

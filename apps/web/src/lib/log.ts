@@ -32,6 +32,7 @@ export type EventKind =
   | 'rejected'
   | 'step'
   | 'spoke'
+  | 'selector'
   | 'completed'
   | 'escalated'
   | 'resolved'
