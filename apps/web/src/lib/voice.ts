@@ -65,3 +65,22 @@ export const play = async (path: string): Promise<PlayResult> => {
  * deliberate reviewed update — not to make a filename tidier.
  */
 export const confirmAudio = (protocolId: string): string => `${protocolId}/confirm.wav`;
+
+/**
+ * Whether the conversation lines have actually been recorded.
+ *
+ * The listening loop switches itself on from this rather than from a setting.
+ * A conversational SANA that listens and then says nothing is a worse
+ * experience than the stepper it replaces, so the upgrade should only present
+ * itself once it has a voice to present with — and nobody should have to
+ * remember to flip a switch on the morning of a demo.
+ */
+export const responsesAvailable = async (): Promise<boolean> => {
+  if (typeof fetch === 'undefined') return false;
+  try {
+    const response = await fetch(`${BASE}/_responses/ready.wav`, { method: 'HEAD' });
+    return response.ok;
+  } catch {
+    return false;
+  }
+};

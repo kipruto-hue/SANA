@@ -3,10 +3,11 @@ import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { Manifest, Protocol, SystemLines } from './schema.js';
+import { Manifest, Protocol, ResponseLines, SystemLines } from './schema.js';
 import type {
   Manifest as ManifestType,
   Protocol as ProtocolType,
+  ResponseLines as ResponseLinesType,
   SystemLines as SystemLinesType,
 } from './schema.js';
 
@@ -40,6 +41,8 @@ export class LibraryIntegrityError extends Error {
 export interface Library {
   readonly protocols: ReadonlyMap<string, ProtocolType>;
   readonly system: SystemLinesType;
+  /** The conversation library the intent boundary routes into by id. */
+  readonly responses: ResponseLinesType;
   readonly manifest: ManifestType;
   /** Every protocol id, sorted. The only ids the NLU boundary will accept. */
   readonly ids: readonly string[];
@@ -72,6 +75,7 @@ export interface FrozenShape {
   readonly manifest: ManifestType;
   readonly protocols: Map<string, ProtocolType>;
   readonly system: SystemLinesType;
+  readonly responses: ResponseLinesType;
 }
 
 /**
@@ -82,6 +86,7 @@ export const readAndHashContent = (): {
   fileHashes: Map<string, string>;
   protocols: Map<string, ProtocolType>;
   system: SystemLinesType;
+  responses: ResponseLinesType;
   entries: ManifestType['entries'];
 } => {
   const files = contentFiles();
@@ -93,6 +98,7 @@ export const readAndHashContent = (): {
   const protocols = new Map<string, ProtocolType>();
   const entries: ManifestType['entries'] = {};
   let system: SystemLinesType | undefined;
+  let responses: ResponseLinesType | undefined;
 
   for (const file of files) {
     const bytes = readContent(file);
@@ -102,6 +108,17 @@ export const readAndHashContent = (): {
     if (file === '_system.json') {
       system = SystemLines.parse(json);
       entries[system.id] = { file_sha256: sha256(bytes), steps: {} };
+      continue;
+    }
+
+    // Hashed and frozen on exactly the same terms as the medical content.
+    // Reassurance is not medicine, but a locked line SANA says to a frightened
+    // person is not something anyone should be able to edit without review
+    // either — and the underscore prefix keeps it out of the protocol set the
+    // selector may choose from.
+    if (file === '_responses.json') {
+      responses = ResponseLines.parse(json);
+      entries[responses.id] = { file_sha256: sha256(bytes), steps: {} };
       continue;
     }
 
@@ -133,7 +150,14 @@ export const readAndHashContent = (): {
     ]);
   }
 
-  return { fileHashes, protocols, system, entries };
+  if (!responses) {
+    throw new LibraryIntegrityError('the library has no _responses.json', [
+      'SANA would have no locked wording for a spoken reply it did not understand, ' +
+        'and an unsure system with nothing locked to say is the one that improvises',
+    ]);
+  }
+
+  return { fileHashes, protocols, system, responses, entries };
 };
 
 /**
@@ -150,7 +174,7 @@ export const loadLibrary = (): Library => {
   }
 
   const manifest = Manifest.parse(JSON.parse(readFileSync(MANIFEST_PATH, 'utf8')));
-  const { fileHashes, protocols, system, entries } = readAndHashContent();
+  const { fileHashes, protocols, system, responses, entries } = readAndHashContent();
 
   const failures: string[] = [];
 
@@ -210,6 +234,7 @@ export const loadLibrary = (): Library => {
   return {
     protocols,
     system,
+    responses,
     manifest,
     ids: [...protocols.keys()].sort(),
   };
@@ -218,4 +243,7 @@ export const loadLibrary = (): Library => {
 /** True when every protocol has a named clinician sign-off. */
 export const isFullyReviewed = (library: Library): boolean =>
   [...library.protocols.values()].every((p) => p.clinician_review.status === 'approved') &&
-  library.system.clinician_review.status === 'approved';
+  library.system.clinician_review.status === 'approved' &&
+  // The conversation lines count. SANA speaking a reassurance nobody reviewed
+  // is the same class of problem as SANA speaking a step nobody reviewed.
+  library.responses.clinician_review.status === 'approved';

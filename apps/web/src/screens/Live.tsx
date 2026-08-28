@@ -3,14 +3,24 @@ import { useCallback, useEffect, useRef, useState, type Dispatch } from 'react';
 import { LIVE } from '../lib/copy.js';
 import { canDial, type SiteContext } from '../lib/context.js';
 import { currentStep, PHASE_LABEL, type Action, type State } from '../lib/flow.js';
-import { CONFIDENCE_THRESHOLD, line, lineAudio } from '../lib/library.js';
-import { selectProtocol } from '../lib/nlu.js';
+import { CONFIDENCE_THRESHOLD, line, lineAudio, responseAudio, responseLine } from '../lib/library.js';
+import { lastReplyIntent } from '../lib/handover.js';
+import { classifyIntent, selectProtocol } from '../lib/nlu.js';
 import { listen, speechSupported, type Listener } from '../lib/speech.js';
 import { recordTurn, transcribe, whisperConfigured, type Heard, type Turn } from '../lib/stt.js';
-import { confirmAudio, play, stopVoice } from '../lib/voice.js';
+import { confirmAudio, play, responsesAvailable, stopVoice } from '../lib/voice.js';
 
 /** Held longer than this and releasing ends the turn; a quick tap latches on. */
 const HOLD_MS = 500;
+
+/**
+ * How long SANA listens for a reply before giving up and going quiet.
+ *
+ * Bounded on purpose. A microphone that stays open indefinitely between steps
+ * is both a battery problem and a trust problem, and going quiet costs nothing
+ * — the buttons never stopped working.
+ */
+const REPLY_WINDOW_MS = 12_000;
 
 const clock = (at: number) =>
   new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -31,6 +41,15 @@ export const Live = ({
   context: SiteContext;
 }) => {
   const [listening, setListening] = useState(false);
+  /**
+   * Whether the conversational loop is on.
+   *
+   * Decided by whether the locked reply lines have actually been recorded, not
+   * by a setting. Until Fish Audio has rendered them SANA stays the stepper it
+   * already is, which is the version that is known to work.
+   */
+  const [conversational, setConversational] = useState(false);
+
   const [typed, setTyped] = useState('');
   const [error, setError] = useState('');
   const listener = useRef<Listener | null>(null);
@@ -39,6 +58,18 @@ export const Live = ({
   const latest = useRef<string>('');
   const step = currentStep(state);
   const dialable = canDial(context);
+
+  /**
+   * The locked line SANA last answered with.
+   *
+   * Derived from the log, never held in component state — the log already
+   * records what was said, and a second copy is a second thing that can
+   * disagree with it. On screen as well as spoken, always: the screen is the
+   * channel that works when the audio has not been recorded, when the room is
+   * loud, and when the person cannot hear. Same locked wording, never a
+   * variant.
+   */
+  const reply = responseLine(lastReplyIntent(state.events));
 
   /**
    * Play a locked line, and record what actually happened.
@@ -72,12 +103,123 @@ export const Live = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Read each step aloud as it arrives. Locked library wording only.
   useEffect(() => {
-    if (state.phase === 'guiding' && step && state.protocol) {
-      void say(step.audio, `${state.protocol.id} step ${step.n}`);
+    void responsesAvailable().then(setConversational);
+  }, []);
+
+  // Read each step aloud as it arrives, then listen for a reply to it. Locked
+  // library wording only, in both directions.
+  useEffect(() => {
+    if (state.phase !== 'guiding' || !step || !state.protocol) return;
+    let cancelled = false;
+    void say(step.audio, `${state.protocol.id} step ${step.n}`).then(() => {
+      if (!cancelled && conversational) dispatch({ type: 'AWAIT_RESPONSE' });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [state.phase, step, state.protocol, say, conversational, dispatch]);
+
+  /**
+   * The listening loop — the conversational upgrade, and the whole of it.
+   *
+   * SANA hears a reply, the model classifies it into one of six locked
+   * intents, and SANA answers with the locked line for that intent. Only
+   * `ready` advances, and it advances by dispatching the same NEXT_STEP the
+   * Next button dispatches — there is no second path through the steps.
+   *
+   * Everything here is additive. The buttons work throughout, a silent window
+   * simply ends the listen, and a classifier that is absent or unsure yields
+   * `unclear`, which holds the guidance exactly where it is. Nothing in this
+   * effect can reach `guiding`; it only ever runs inside it.
+   */
+  useEffect(() => {
+    if (!state.awaitingResponse) return;
+
+    let cancelled = false;
+    let recogniser: Listener | null = null;
+    let recorder: Turn | null = null;
+
+    const finish = async (deviceText: string) => {
+      if (cancelled) return;
+      recogniser?.stop();
+
+      let heard: Heard = { text: deviceText, language: '', source: 'on-device' };
+      if (recorder) {
+        const audio = await recorder.stop();
+        recorder = null;
+        const whisper = audio ? await transcribe(audio) : null;
+        if (whisper) heard = whisper;
+      }
+      if (cancelled) return;
+
+      const said = heard.text.trim();
+      // Silence is an answer too, and the answer is to stop listening.
+      if (!said) {
+        dispatch({ type: 'CANCEL_AWAIT' });
+        return;
+      }
+
+      const { intent, selector } = await classifyIntent(said);
+      if (cancelled) return;
+      dispatch({
+        type: 'HEARD_RESPONSE',
+        transcript: said,
+        language: heard.language,
+        intent,
+        selector,
+      });
+
+        const outcome = await play(responseAudio(intent));
+      if (cancelled) return;
+      dispatch({
+        type: 'SPOKE_RESPONSE',
+        intent,
+        outcome: outcome === 'played' ? 'played' : 'silent',
+      });
+
+      if (intent === 'repeat' && step && state.protocol) {
+        await say(step.audio, `${state.protocol.id} step ${step.n} (repeat)`);
+      }
+      // `ready` and `stop` have already moved the flow on, and the step effect
+      // picks it up from there. The rest hold on this step and keep listening,
+      // because someone who is frightened or reporting a change is still
+      // talking to us.
+      if (!cancelled && intent !== 'ready' && intent !== 'stop') {
+        dispatch({ type: 'AWAIT_RESPONSE' });
+      }
+    };
+
+    recogniser = listen(
+      (text, final) => {
+        if (final) void finish(text);
+      },
+      () => {
+        // A recognition error between steps is not worth interrupting for.
+        // The buttons are right there.
+        dispatch({ type: 'CANCEL_AWAIT' });
+      },
+    );
+    if (whisperConfigured()) {
+      void recordTurn().then((started) => {
+        if (cancelled) started?.cancel();
+        else recorder = started;
+      });
     }
-  }, [state.phase, step, state.protocol, say]);
+
+    const window_ = window.setTimeout(() => void finish(''), REPLY_WINDOW_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(window_);
+      recogniser?.stop();
+      recorder?.cancel();
+    };
+    // `step` and `state.protocol` are read inside, but re-running this effect
+    // on a step change is exactly wrong: the change already cancelled the
+    // listen, and restarting it here would race the step audio.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.awaitingResponse, dispatch]);
 
   useEffect(() => {
     if (state.phase === 'confirming' && state.match) {
@@ -317,6 +459,12 @@ export const Live = ({
               ))}
             </div>
             <p className="step-text">{step.text}</p>
+            {reply && <p className="said">{reply}</p>}
+            {state.awaitingResponse && (
+              <p className="captions" aria-live="polite">
+                {LIVE.awaitingReply}
+              </p>
+            )}
             <div className="step-nav">
               <button
                 className="btn btn-secondary"

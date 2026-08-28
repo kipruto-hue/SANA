@@ -45,6 +45,28 @@ const last = (events: readonly LoggedEvent[], kind: string): LoggedEvent | undef
 const first = (events: readonly LoggedEvent[], kind: string): LoggedEvent | undefined =>
   events.find((event) => event.kind === kind);
 
+/**
+ * The locked reply SANA last gave, read back out of the log.
+ *
+ * Lives here with the other derivations rather than in the screen: what is on
+ * screen during guidance is as much a view of the log as the handover sheet
+ * is, and holding a second copy in component state is a second thing that can
+ * disagree with the record. The search stops at the last step change, so a
+ * reply never lingers past the step it answered.
+ *
+ * Returns the intent id; the caller looks up the locked wording, so no
+ * sentence is ever stored outside the frozen library.
+ */
+export const lastReplyIntent = (events: readonly LoggedEvent[]): string => {
+  for (let i = events.length - 1; i >= 0; i -= 1) {
+    const event = events[i];
+    if (!event) continue;
+    if (event.kind === 'step' || event.kind === 'confirmed') return '';
+    if (event.kind === 'reassured') return str(event, 'intent');
+  }
+  return '';
+};
+
 export interface HandoverRecord {
   readonly startedAt: number | null;
   readonly operator: string;

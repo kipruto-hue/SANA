@@ -109,6 +109,12 @@ export const LIVE = {
   micRefused: 'Microphone permission was refused. You can type what you can see instead.',
   micStopped: (reason: string) => `Speech recognition stopped (${reason}). You can type instead.`,
   micUnsupported: 'This browser can’t listen. Type what you can see instead.',
+  /**
+   * Shown while SANA listens for a reply between steps. Says what it is doing
+   * and what still works, because a microphone that opens on its own has to
+   * account for itself immediately.
+   */
+  awaitingReply: 'Listening — say “ready” when you want the next step, or use the buttons.',
 } as const;
 
 export const HANDOVER = {

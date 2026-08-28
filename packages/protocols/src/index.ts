@@ -16,8 +16,10 @@ export {
   Protocol,
   ProtocolStep,
   SystemLines,
+  ResponseLines,
+  RESPONSE_INTENTS,
   Manifest,
   ClinicianReview,
   DIAGNOSIS_WORDS,
 } from './schema.js';
-export type { SystemLineName } from './schema.js';
+export type { SystemLineName, ResponseIntent } from './schema.js';

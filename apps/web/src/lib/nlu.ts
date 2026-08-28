@@ -2,8 +2,10 @@ import {
   CONFIDENCE_THRESHOLD,
   matchProtocol,
   PROTOCOLS,
+  RESPONSE_INTENTS,
   type Match,
   type Protocol,
+  type ResponseIntent,
 } from './library.js';
 import { configured, llm, TIMEOUT_MS, type ProviderConfig } from './providers.js';
 
@@ -199,6 +201,124 @@ export const selectProtocol = async (transcript: string): Promise<SelectionResul
     };
   } catch (error) {
     return onDevice(error instanceof Error ? error.message : 'selector unreachable');
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
+
+/* ── The second boundary: intents ─────────────────────────────────────────
+ *
+ * Conversation is routed exactly the way protocol selection is routed, and for
+ * the same reason. The model is given the person's words and a list of intent
+ * ids; it returns one id. It is never shown the reply wording, so there is
+ * nothing in its context to echo, paraphrase or improve on, and no field it
+ * could set that would put a sentence it wrote in front of a frightened
+ * person.
+ *
+ * The temptation this design exists to refuse: once SANA is listening, it will
+ * feel obvious to let the model write one custom reassurance for the reply
+ * that fits no intent. It must not. Unmatched input gets the locked `unclear`
+ * line and the guidance holds where it is. If the intent set turns out to be
+ * too small, the fix is a new locked, reviewed line — never an open mouth.
+ */
+
+const INTENTS: ReadonlySet<string> = new Set(RESPONSE_INTENTS);
+
+/**
+ * The only door for a spoken reply. One known intent id, or nothing.
+ *
+ * A near-copy of `crossBoundary` on purpose. The duplication is worth more
+ * than a shared generic would be: each boundary is short enough to read in
+ * full and verify by eye, which is the property that matters for the two
+ * functions in this codebase that decide what a model is allowed to do.
+ */
+export const crossIntentBoundary = (raw: unknown): ResponseIntent | null => {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const fields = raw as Record<string, unknown>;
+
+  const id = fields['intent_id'];
+  if (typeof id !== 'string') return null;
+  // Not in the fixed set, not an intent. A hallucinated intent selects nothing
+  // and falls through to the locked `unclear` line.
+  if (!INTENTS.has(id)) return null;
+
+  // Returned as a bare string. There is no object here for anything else to
+  // travel inside.
+  return id as ResponseIntent;
+};
+
+const intentInstructions = (): string =>
+  [
+    'You classify what a person said while being guided through first aid.',
+    'You do not give first aid, and you do not reply to them.',
+    '',
+    'Rules:',
+    '- Return exactly one intent id from the list below.',
+    '- Never write a reply, a reassurance, or any first-aid wording.',
+    '- Never name a cause, a diagnosis or a condition.',
+    '- Never decide to call emergency services; a human does that.',
+    '- If the meaning is not clear, return "unclear". Do not guess to be helpful.',
+    '',
+    'Intents:',
+    '- ready: they are ready to continue to the next step',
+    '- repeat: they did not hear or did not follow, and want it again',
+    '- panic: they express fear or distress',
+    '- changed: they report something new happening',
+    '- stop: they want to stop, or a responder has taken over',
+    '- unclear: anything else',
+    '',
+    'Reply with JSON only: {"intent_id": "<one of the ids above>"}',
+  ].join('\n');
+
+export interface IntentResult {
+  readonly intent: ResponseIntent;
+  readonly selector: 'llm' | 'unclassified';
+}
+
+/**
+ * Classify a spoken reply.
+ *
+ * Every failure path — no provider, no key, no network, a timeout, a malformed
+ * answer, an unknown id — lands on `unclear`, which is a locked line that
+ * holds the guidance where it is. That is deliberately not the same shape as
+ * protocol selection, which falls back to an on-device matcher: here, holding
+ * still and saying so is always safe, and the person's taps still work.
+ */
+export const classifyIntent = async (transcript: string): Promise<IntentResult> => {
+  const provider = llm();
+  if (!configured(provider)) return { intent: 'unclear', selector: 'unclassified' };
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const response = await fetch(`${provider.baseUrl.replace(/\/$/, '')}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${provider.key}`,
+      },
+      body: JSON.stringify({
+        model: provider.model,
+        temperature: 0,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: intentInstructions() },
+          { role: 'user', content: transcript },
+        ],
+      }),
+      signal: controller.signal,
+    });
+    if (!response.ok) return { intent: 'unclear', selector: 'unclassified' };
+
+    const body = (await response.json()) as ChatResponse;
+    const content = body.choices?.[0]?.message?.content;
+    if (typeof content !== 'string') return { intent: 'unclear', selector: 'unclassified' };
+
+    const intent = crossIntentBoundary(JSON.parse(content) as unknown);
+    return intent ? { intent, selector: 'llm' } : { intent: 'unclear', selector: 'unclassified' };
+  } catch {
+    return { intent: 'unclear', selector: 'unclassified' };
   } finally {
     clearTimeout(timer);
   }

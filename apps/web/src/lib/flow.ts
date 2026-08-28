@@ -1,5 +1,5 @@
 import type { SiteContext } from './context.js';
-import type { Match, Protocol } from './library.js';
+import type { Match, Protocol, ResponseIntent } from './library.js';
 import {
   append,
   newIncidentId,
@@ -53,6 +53,17 @@ export interface State {
   readonly protocol: Protocol | null;
   readonly stepIndex: number;
   /**
+   * Whether SANA is listening for a spoken reply to the current step.
+   *
+   * A sub-state *inside* guiding, deliberately not a new `Phase`. The whole
+   * safety argument rests on `guiding` being reachable only through
+   * HUMAN_CONFIRMED; a new phase value would add a row to the transition table
+   * sitting next to it, and every future edit would have to re-establish that
+   * the new row cannot be entered another way. A flag that means nothing
+   * unless `phase === 'guiding'` cannot weaken a property it is nested inside.
+   */
+  readonly awaitingResponse: boolean;
+  /**
    * The furthest step actually reached. Distinct from stepIndex, which moves
    * back when the operator taps Back -- the handover sheet must report how far
    * the guidance actually got, not where the screen happens to be sitting.
@@ -78,6 +89,7 @@ export const initialState: State = {
   protocol: null,
   stepIndex: 0,
   furthestStep: 0,
+  awaitingResponse: false,
   escalated: false,
   escalatedAt: null,
   startedAt: null,
@@ -120,6 +132,26 @@ export type Action =
    * silent about it would imply the model had been consulted and agreed.
    */
   | { type: 'SELECTOR_FALLBACK'; reason: string }
+  /** SANA begins listening for a reply to the step it just read. */
+  | { type: 'AWAIT_RESPONSE' }
+  /** SANA stops listening — a tap, a screen change, or nothing was said. */
+  | { type: 'CANCEL_AWAIT' }
+  /**
+   * A spoken reply, classified into one locked intent.
+   *
+   * Only `ready` advances, and only from inside guiding. Everything the model
+   * contributed is the `intent` field: one id out of six, chosen from a fixed
+   * set it was shown without the wording attached.
+   */
+  | {
+      type: 'HEARD_RESPONSE';
+      transcript: string;
+      language: string;
+      intent: ResponseIntent;
+      selector: string;
+    }
+  /** Which locked reply was played back. Reference only; wording stays locked. */
+  | { type: 'SPOKE_RESPONSE'; intent: ResponseIntent; outcome: 'played' | 'silent' }
   /** Recorded after the human taps the dial control. SANA never dials. */
   | { type: 'HUMAN_TAPPED_CALL'; number: string }
   | { type: 'RESOLVE' }
@@ -238,6 +270,7 @@ export const reducer = (state: State, action: Action): State => {
         protocol: state.match.protocol,
         stepIndex: 0,
         furthestStep: 0,
+        awaitingResponse: false,
         events: log(state, 'confirmed', `Human confirmed: ${state.match.protocol.title}`, {
           protocolId: state.match.protocol.id,
           title: state.match.protocol.title,
@@ -270,6 +303,7 @@ export const reducer = (state: State, action: Action): State => {
         return {
           ...state,
           phase: 'resolved',
+          awaitingResponse: false,
           events: log(state, 'completed', `Completed all ${state.protocol.steps.length} steps`, {
             protocolId: state.protocol.id,
             totalSteps: state.protocol.steps.length,
@@ -280,6 +314,9 @@ export const reducer = (state: State, action: Action): State => {
       return {
         ...state,
         stepIndex: next,
+        // A step change always stops the listen. Whatever was being said was
+        // said about the previous step.
+        awaitingResponse: false,
         furthestStep: Math.max(state.furthestStep, next),
         events: log(state, 'step', `Step ${next + 1} of ${state.protocol.steps.length} read`, {
           protocolId: state.protocol.id,
@@ -298,6 +335,7 @@ export const reducer = (state: State, action: Action): State => {
       return {
         ...state,
         stepIndex: back,
+        awaitingResponse: false,
         events: log(state, 'step', `Went back to step ${back + 1} of ${state.protocol.steps.length}`, {
           protocolId: state.protocol.id,
           n: back + 1,
@@ -347,10 +385,71 @@ export const reducer = (state: State, action: Action): State => {
         events: log(state, 'escalated', 'Human tapped call for help', { number: action.number }),
       };
 
+    case 'AWAIT_RESPONSE':
+      // Only ever inside guidance, and never a way into it.
+      if (state.phase !== 'guiding') return state;
+      return { ...state, awaitingResponse: true };
+
+    case 'CANCEL_AWAIT':
+      return state.awaitingResponse ? { ...state, awaitingResponse: false } : state;
+
+    case 'HEARD_RESPONSE': {
+      // Recorded wherever it happens, so a reply spoken at a moment SANA was
+      // not guiding still appears in the record rather than vanishing.
+      const heard: State = {
+        ...state,
+        awaitingResponse: false,
+        events: log(
+          state,
+          'heard',
+          `Heard "${action.transcript}" — understood as “${action.intent}”`,
+          {
+            transcript: action.transcript,
+            language: action.language,
+            intent: action.intent,
+            classifier: action.selector,
+          },
+        ),
+      };
+
+      // The guard, not a formality: a spoken reply may move *within* guidance
+      // and may end it, and it can do neither from anywhere else. Voice never
+      // opens the door that HUMAN_CONFIRMED opens.
+      if (state.phase !== 'guiding') return heard;
+
+      switch (action.intent) {
+        // The one intent that advances, and it does so by firing the exact
+        // action the Next button fires. There is no second path through the
+        // steps for voice to take.
+        case 'ready':
+          return reducer(heard, { type: 'NEXT_STEP' });
+        case 'stop':
+          return reducer(heard, { type: 'RESOLVE' });
+        // repeat, panic, changed, unclear: SANA answers with its locked line
+        // and the guidance holds exactly where it is.
+        default:
+          return heard;
+      }
+    }
+
+    case 'SPOKE_RESPONSE':
+      return {
+        ...state,
+        events: log(
+          state,
+          'reassured',
+          action.outcome === 'played'
+            ? `Answered with the locked “${action.intent}” line`
+            : `No recorded audio for the “${action.intent}” line — shown on screen only`,
+          { intent: action.intent, outcome: action.outcome },
+        ),
+      };
+
     case 'RESOLVE':
       return {
         ...state,
         phase: 'resolved',
+        awaitingResponse: false,
         screen: 'handover',
         events: log(state, 'resolved', 'Session ended by the operator'),
       };

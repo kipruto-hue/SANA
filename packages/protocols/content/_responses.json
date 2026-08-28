@@ -1,0 +1,42 @@
+{
+  "id": "_responses",
+  "version": "1.0.0",
+  "description": "Everything SANA is allowed to say back to a person mid-guidance. Warmth rather than medicine, but locked, hashed and clinician-review-gated exactly like a protocol step, because what SANA says to a frightened person between steps is safety-critical in its own right. The model classifies a spoken reply into one of these intents by id and never sees this wording, so there is nothing here for it to echo or improve on. When it cannot classify, the locked 'unclear' line is spoken and the step does not advance.",
+  "lines": {
+    "ready": {
+      "text": "Good. Here's the next step.",
+      "audio": "_responses/ready.wav",
+      "note": "The only intent that advances the guidance. Short on purpose: the step itself follows immediately, and a longer acknowledgement would put words between the person and the instruction they are waiting for."
+    },
+    "repeat": {
+      "text": "Of course. Listen again — I'll go slowly.",
+      "audio": "_responses/repeat.wav",
+      "note": "Spoken when the person did not hear or did not follow. Says 'of course' rather than 'no problem' because the second implies there could have been one."
+    },
+    "panic": {
+      "text": "You're doing the right thing. Stay with me. One step at a time.",
+      "audio": "_responses/panic.wav",
+      "note": "Spoken when the person expresses fear or distress. Affirms the person, not the outcome — SANA cannot know whether the casualty will be alright and must never imply it. The step does not advance; a frightened person is not ready to act on the next instruction."
+    },
+    "changed": {
+      "text": "Okay, I hear you. Keep them safe, and let's carry on with what we can do right now.",
+      "audio": "_responses/changed.wav",
+      "note": "Spoken when the person reports something new. Deliberately does not react to the content of what changed: reacting would mean assessing it, and assessing is the thing SANA does not do. The human still owns the decision to call for help, and the dial control is on screen throughout."
+    },
+    "stop": {
+      "text": "Alright. Stay with them and keep watching their breathing until help arrives.",
+      "audio": "_responses/stop.wav",
+      "note": "Spoken when the person wants to stop, or a responder has taken over. Ends the guidance and opens the handover. Leaves them with something to do, because the minutes after guidance ends are still the window this product exists for."
+    },
+    "unclear": {
+      "text": "I hear you. Let's keep going with what we can do right now.",
+      "audio": "_responses/unclear.wav",
+      "note": "The locked fallback for anything that matches no intent, and for every case where the classifier is absent, unreachable or unsure. This line is the reason the model is never allowed to author a reply: without it, a system that did not understand would fill the silence with something plausible. It never advances the step — the person taps, or speaks again."
+    }
+  },
+  "clinician_review": {
+    "status": "pending",
+    "reviewer": null,
+    "date": null
+  }
+}

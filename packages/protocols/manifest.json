@@ -1,7 +1,11 @@
 {
   "generated_by": "packages/protocols/src/freeze.ts",
-  "library_sha256": "a7290ba5be68a2568462a0e790075e2aedec08ec32b3a570203a13d6e47972cb",
+  "library_sha256": "93873b56a7470064209d4d8f1ebf5ed78b27dead53cbcd65024c51586f9bf7c2",
   "entries": {
+    "_responses": {
+      "file_sha256": "eeff884407a2822edaf3cf1839ee9ed746cdc2d12c347a455bbc64bbce574e78",
+      "steps": {}
+    },
     "_system": {
       "file_sha256": "45685687258460cb00a2947e9852ce712ba13765aa1f36940816513976150d45",
       "steps": {}

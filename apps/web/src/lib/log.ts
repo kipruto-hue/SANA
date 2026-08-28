@@ -33,6 +33,8 @@ export type EventKind =
   | 'step'
   | 'spoke'
   | 'selector'
+  | 'heard'
+  | 'reassured'
   | 'completed'
   | 'escalated'
   | 'resolved'

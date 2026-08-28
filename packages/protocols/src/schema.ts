@@ -137,6 +137,70 @@ export const SystemLines = z
   })
   .strict();
 
+/**
+ * The intents SANA is allowed to recognise in a spoken reply.
+ *
+ * Fixed, and small on purpose. Every intent is a sentence SANA can say back,
+ * so the set can only grow through the same review a protocol step needs —
+ * which is exactly the friction that stops it growing into a chatbot.
+ */
+export const RESPONSE_INTENTS = [
+  'ready',
+  'repeat',
+  'panic',
+  'changed',
+  'stop',
+  'unclear',
+] as const;
+
+export type ResponseIntent = (typeof RESPONSE_INTENTS)[number];
+
+export const ResponseLine = z
+  .object({
+    /**
+     * What SANA says back. Warmth rather than medicine — but locked, hashed
+     * and reviewed as if it were medicine, because what SANA says to a
+     * frightened person mid-emergency is safety-critical in its own right.
+     */
+    text: z
+      .string()
+      .min(1)
+      .refine(noDiagnosisLanguage, { message: `response line ${DIAGNOSIS_MESSAGE}` }),
+    audio: z.string().min(1),
+    note: z.string().min(1),
+  })
+  .strict();
+
+/**
+ * The conversation library — one locked line per intent.
+ *
+ * Shaped exactly like {@link SystemLines} and hashed the same way. The model
+ * routes to these by id and never sees their wording, so there is nothing here
+ * for it to echo, rewrite or improve on.
+ *
+ * `unclear` carries the same weight `unmatched` carries in the system lines:
+ * it is what SANA says when it did not understand, and having it locked is
+ * what stops an unsure system filling the silence with something plausible.
+ */
+export const ResponseLines = z
+  .object({
+    id: z.literal('_responses'),
+    version: z.string().regex(/^\d+\.\d+\.\d+$/),
+    description: z.string().min(1),
+    lines: z
+      .object({
+        ready: ResponseLine,
+        repeat: ResponseLine,
+        panic: ResponseLine,
+        changed: ResponseLine,
+        stop: ResponseLine,
+        unclear: ResponseLine,
+      })
+      .strict(),
+    clinician_review: ClinicianReview,
+  })
+  .strict();
+
 export const StepHashes = z
   .object({
     text_sha256: z.string().regex(/^[0-9a-f]{64}$/),
@@ -164,6 +228,7 @@ export const Manifest = z
 export type Protocol = z.infer<typeof Protocol>;
 export type ProtocolStep = z.infer<typeof ProtocolStep>;
 export type SystemLines = z.infer<typeof SystemLines>;
+export type ResponseLines = z.infer<typeof ResponseLines>;
 export type SystemLineName = keyof SystemLines['lines'];
 export type Manifest = z.infer<typeof Manifest>;
 export type ClinicianReview = z.infer<typeof ClinicianReview>;

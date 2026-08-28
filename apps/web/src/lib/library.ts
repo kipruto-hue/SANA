@@ -1,6 +1,7 @@
 import choking from '../../../../packages/protocols/content/choking-adult.json';
 import fainting from '../../../../packages/protocols/content/fainting-unresponsive.json';
 import snakebite from '../../../../packages/protocols/content/snakebite.json';
+import responseLines from '../../../../packages/protocols/content/_responses.json';
 import systemLines from '../../../../packages/protocols/content/_system.json';
 
 /**
@@ -39,6 +40,37 @@ export const line = (name: keyof typeof LINES | string): string =>
 /** The generated audio file for a locked system line. */
 export const lineAudio = (name: keyof typeof LINES | string): string =>
   LINES[name]?.audio ?? '';
+
+/* ── The conversation library ─────────────────────────────────────────────
+ *
+ * The third locked library. SANA's replies during guidance come from here and
+ * only here: the model classifies what was said into one of these intents by
+ * id, never sees this wording, and never writes any of its own.
+ */
+
+/**
+ * The intents, derived from the content file's own keys rather than written
+ * out again here. A second hand-maintained list is a list that drifts, and a
+ * drifted intent would be one the boundary accepts but the library cannot
+ * answer. `responses.test.ts` proves the two agree.
+ */
+export const RESPONSE_INTENTS = Object.keys(responseLines.lines) as readonly ResponseIntent[];
+
+export type ResponseIntent = keyof typeof responseLines.lines;
+
+export const RESPONSES = responseLines.lines as Record<
+  string,
+  { text: string; audio: string; note: string }
+>;
+
+/** The locked sentence SANA says back for an intent. */
+export const responseLine = (intent: string): string => RESPONSES[intent]?.text ?? '';
+
+/** The recording of that sentence. */
+export const responseAudio = (intent: string): string => RESPONSES[intent]?.audio ?? '';
+
+/** True when a named clinician has signed off the conversation lines too. */
+export const RESPONSES_REVIEWED = responseLines.clinician_review.status === 'approved';
 
 /** True when a named clinician has signed off every script. */
 export const FULLY_REVIEWED = PROTOCOLS.every((p) => p.clinician_review.status === 'approved');
