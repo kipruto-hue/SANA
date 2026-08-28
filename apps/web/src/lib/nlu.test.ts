@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { crossBoundary } from './nlu.js';
-import { PROTOCOLS } from './library.js';
+import { crossBoundary, crossIntentBoundary } from './nlu.js';
+import { PROTOCOLS, RESPONSE_INTENTS } from './library.js';
 
 /**
  * The boundary is the safety artefact, so these tests are adversarial: they
@@ -75,5 +75,62 @@ describe('only an id and a number cross the boundary', () => {
       auto_advance: true,
     });
     expect(Object.keys(selection!)).toEqual(['protocol', 'confidence']);
+  });
+});
+
+
+describe('only a known intent id crosses the second boundary', () => {
+  it('accepts each of the six intents and nothing else', () => {
+    for (const intent of RESPONSE_INTENTS) {
+      expect(crossIntentBoundary({ intent_id: intent }), intent).toBe(intent);
+    }
+  });
+
+  it('drops an intent the library has no locked line for', () => {
+    // Same discipline that makes a hallucinated protocol id harmless: an
+    // intent SANA cannot answer selects nothing, and the caller falls to the
+    // locked `unclear` line.
+    for (const id of ['calm', 'yes', 'READY', 'ready ', '', 'reassure_custom', '__proto__']) {
+      expect(crossIntentBoundary({ intent_id: id }), JSON.stringify(id)).toBeNull();
+    }
+  });
+
+  it('drops a reply the model tried to write for itself', () => {
+    // The temptation the whole design exists to refuse: a model offering a
+    // custom reassurance for something that fits no intent.
+    const MODEL = 'MODEL-AUTHORED-WORDING';
+    const crossed = crossIntentBoundary({
+      intent_id: 'panic',
+      reply: `${MODEL}: you're doing amazingly, they're going to be fine.`,
+      spoken_response: `${MODEL}: try to keep them warm.`,
+      reassurance: `${MODEL}: it's probably just a faint.`,
+      say: `${MODEL}: anything at all`,
+    });
+
+    // A bare string comes back. There is no object for wording to ride inside.
+    expect(crossed).toBe('panic');
+    expect(typeof crossed).toBe('string');
+    expect(JSON.stringify(crossed)).not.toContain(MODEL);
+  });
+
+  it('gives a model no field that advances a step or ends the session', () => {
+    // Advancing is the reducer's decision, made from the intent alone. Nothing
+    // the model can set reaches NEXT_STEP or RESOLVE directly.
+    expect(
+      crossIntentBoundary({
+        intent_id: 'panic',
+        advance: true,
+        next_step: true,
+        skip_confirmation: true,
+        escalate: true,
+        resolve: true,
+      }),
+    ).toBe('panic');
+  });
+
+  it('refuses anything that is not the expected shape', () => {
+    for (const raw of [null, undefined, 'ready', 42, [], ['ready'], { intent: 'ready' }, {}]) {
+      expect(crossIntentBoundary(raw), JSON.stringify(raw) ?? 'undefined').toBeNull();
+    }
   });
 });

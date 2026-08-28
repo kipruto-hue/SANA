@@ -129,6 +129,9 @@ export const HANDOVER = {
   noActions: 'No guidance was given during this session.',
   notIncluded: 'Not included',
   timeline: 'Timeline',
+  conversation: 'What was said during guidance',
+  conversationNote:
+    'The operator’s own words, with how SANA understood each one. SANA classified these into a fixed set of six replies; it did not interpret them medically.',
   copy: 'Copy for the record',
   copied: 'Copied',
   save: 'Save a copy',

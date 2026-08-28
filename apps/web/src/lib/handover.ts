@@ -67,6 +67,40 @@ export const lastReplyIntent = (events: readonly LoggedEvent[]): string => {
   return '';
 };
 
+/**
+ * One thing the person said during guidance, and how SANA understood it.
+ *
+ * The transcript is their own words, kept verbatim. The intent is the id the
+ * classifier chose — six possible values, none of them a judgement about the
+ * casualty. A responder reading this learns what was said and when, which is
+ * information the old sheet threw away entirely.
+ */
+export interface ConversationTurn {
+  readonly at: number;
+  readonly intent: string;
+  readonly transcript: string;
+  /** The step being guided when they said it, if guidance had started. */
+  readonly step: number | null;
+}
+
+const conversationFrom = (events: readonly LoggedEvent[]): readonly ConversationTurn[] => {
+  const turns: ConversationTurn[] = [];
+  let step: number | null = null;
+
+  for (const event of events) {
+    if (event.kind === 'confirmed') step = 1;
+    if (event.kind === 'step') step = num(event, 'n') ?? step;
+    if (event.kind !== 'heard') continue;
+    turns.push({
+      at: event.at,
+      intent: str(event, 'intent'),
+      transcript: str(event, 'transcript'),
+      step,
+    });
+  }
+  return turns;
+};
+
 export interface HandoverRecord {
   readonly startedAt: number | null;
   readonly operator: string;
@@ -87,6 +121,8 @@ export interface HandoverRecord {
   readonly unmatched: boolean;
   /** Whether a model was in the loop for the match, and which one of us chose. */
   readonly selector: string;
+  /** What the person said during guidance, and how each reply was understood. */
+  readonly conversation: readonly ConversationTurn[];
   readonly timeline: readonly LoggedEvent[];
 }
 
@@ -126,6 +162,7 @@ export const deriveHandover = (events: readonly LoggedEvent[]): HandoverRecord =
     rejectedCount: events.filter((event) => event.kind === 'rejected').length,
     unmatched: events.some((event) => event.kind === 'unmatched'),
     selector: str(suggested, 'selector'),
+    conversation: conversationFrom(events),
     timeline: events,
   };
 };
@@ -160,6 +197,26 @@ export const actionLines = (record: HandoverRecord, noneRecorded: string): reado
   if (record.unmatched) {
     lines.push('SANA could not match what was described, and advised calling for help.');
   }
+  // Distress and new reports go on the sheet as facts with times against them.
+  // Deliberately not summarised into a mood or a severity: SANA saying "the
+  // operator was panicking" would be an assessment, and the person's own words
+  // with a step number are more use to a responder than any adjective.
+  for (const turn of record.conversation) {
+    if (turn.intent === 'panic') {
+      lines.push(
+        turn.step === null
+          ? `Distress was expressed at ${clock(turn.at)}. SANA answered with its locked reassurance.`
+          : `Distress was expressed at step ${turn.step}, ${clock(turn.at)}. SANA answered with its locked reassurance.`,
+      );
+    }
+    if (turn.intent === 'changed') {
+      lines.push(
+        `Something new was reported${turn.step === null ? '' : ` at step ${turn.step}`}, ` +
+          `${clock(turn.at)}: “${turn.transcript}”`,
+      );
+    }
+  }
+
   if (record.rejectedCount > 0) {
     lines.push(
       record.rejectedCount === 1
@@ -173,6 +230,7 @@ export const actionLines = (record: HandoverRecord, noneRecorded: string): reado
 
 export interface RecordLabels {
   readonly whatHappened: string;
+  readonly conversation?: string;
   readonly nothingDescribed: string;
   readonly actions: string;
   readonly notIncluded: string;
@@ -198,6 +256,17 @@ export const toText = (record: HandoverRecord, labels: RecordLabels): string =>
     '',
     labels.notIncluded,
     ...labels.notIncludedItems.map((item) => `- ${item}`),
+    ...(record.conversation.length > 0 && labels.conversation
+      ? [
+          '',
+          labels.conversation,
+          ...record.conversation.map(
+            (turn) =>
+              `${clock(turn.at)}  ${turn.step === null ? '' : `step ${turn.step} · `}` +
+              `“${turn.transcript}” — understood as ${turn.intent}`,
+          ),
+        ]
+      : []),
     '',
     labels.timeline,
     ...record.timeline.map((event) => `${clock(event.at)}  ${event.detail}`),

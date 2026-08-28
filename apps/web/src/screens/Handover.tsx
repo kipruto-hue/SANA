@@ -32,6 +32,7 @@ const LABELS: RecordLabels = {
   timeline: HANDOVER.timeline,
   noActions: HANDOVER.noActions,
   notIncludedItems: NOT_INCLUDED,
+  conversation: HANDOVER.conversation,
 };
 
 export const Handover = ({
@@ -102,6 +103,24 @@ export const Handover = ({
             ))}
           </ul>
         </div>
+
+        {record.conversation.length > 0 && (
+          <div className="sheet-section">
+            <h3>{HANDOVER.conversation}</h3>
+            <div className="timeline">
+              {record.conversation.map((turn) => (
+                <div className="tl-row" key={turn.at}>
+                  <time>{clock(turn.at)}</time>
+                  <span>
+                    {turn.step === null ? '' : `Step ${turn.step} · `}
+                    “{turn.transcript}” — understood as {turn.intent}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="note">{HANDOVER.conversationNote}</p>
+          </div>
+        )}
 
         <div className="sheet-section">
           <h3>{HANDOVER.notIncluded}</h3>
