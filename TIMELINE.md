@@ -230,3 +230,19 @@ a test asserting that model wording never survives the boundary failed because
 it looked for the phrase "back blows" — which is in the library's own reviewed
 choking steps, and belongs there. Forty-eight tests green, production build
 clean, five commits pushed.
+
+---
+
+## 2026-08-28 — Session 06: opening state, demo day
+
+SANA opens demo day with the tree clean, `main` level with `origin/main` at
+`776f938`, and `npm run verify` green end to end — token drift, Qatar dressing,
+typecheck across both projects, lint, and 48 tests across four files. The brief
+for today is a conversational upgrade, written explicitly as additive: SANA
+should listen after each step, understand the spoken response, reassure, and
+advance by voice, without the model authoring a single spoken word. The
+mechanism is the one the project already trusts — conversation becomes a third
+locked library the model routes through by id, shaped exactly like the protocol
+library it already routes through, hashed and clinician-review-gated the same
+way. The model gains ears, never a mouth.
+
